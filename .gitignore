@@ -1,0 +1,34 @@
+# Entornos Virtuales
+.venv/
+venv/
+env/
+ENV/
+
+# Archivos de caché de Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Datos de entrada y procesamiento (Ignorar para no subir PII o archivos pesados)
+*.xlsx
+*.csv
+*.xls
+
+# Archivos generados (Reportes)
+reportes/
+*.html
+*.pdf
+
+# Archivos de la IDE
+.vscode/
+*.swp
+.idea/
+
+# Herramientas de testing y coverage
+.coverage
+.tox/
+.pytest_cache/
+
+# Logs
+*.log

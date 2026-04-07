@@ -1,0 +1,111 @@
+[
+    {
+        "nombre": "Casa Blanca",
+        "tipo": "oficina",
+        "lat": 10.382486,
+        "lon": -75.475173,
+        "radio_m": 200
+    },
+    {
+        "nombre": "Renta Ya",
+        "tipo": "oficina",
+        "lat": 10.380147,
+        "lon": -75.474889,
+        "radio_m": 200
+    },
+    {
+        "nombre": "La Consolata",
+        "tipo": "oficina",
+        "lat": 10.372929,
+        "lon": -75.472837,
+        "radio_m": 200
+    },
+    {
+        "nombre": "Casa Jaime - Carlitos",
+        "tipo": "casa",
+        "conductor": "Jaime - Carlitos",
+        "lat": 10.372592,
+        "lon": -75.474683,
+        "radio_m": 200
+    },
+    {
+        "nombre": "Casa Jhonatan Gomez",
+        "tipo": "casa",
+        "conductor": "Jhonatan Gomez",
+        "lat": 10.3727,
+        "lon": -75.475891,
+        "radio_m": 200
+    },
+    {
+        "nombre": "Casa Victor Grau",
+        "tipo": "casa",
+        "conductor": "Victor Grau",
+        "lat": 10.373054,
+        "lon": -75.472928,
+        "radio_m": 200
+    },
+    {
+        "nombre": "Casa Julio Bello",
+        "tipo": "casa",
+        "conductor": "Julio Bello",
+        "lat": 10.377404,
+        "lon": -75.486535,
+        "radio_m": 200
+    },
+    {
+        "nombre": "Casa Yilmer Sierra",
+        "tipo": "casa",
+        "conductor": "Yilmer Sierra",
+        "lat": 10.373169,
+        "lon": -75.472924,
+        "radio_m": 200
+    },
+    {
+        "nombre": "Casa Julian Bello",
+        "tipo": "casa",
+        "conductor": "Julian Bello",
+        "lat": 10.424527,
+        "lon": -75.461526,
+        "radio_m": 200
+    },
+    {
+        "nombre": "Casa Yanior",
+        "tipo": "casa",
+        "conductor": "Yanior",
+        "lat": 10.385875,
+        "lon": -75.459067,
+        "radio_m": 200
+    },
+    {
+        "nombre": "Casa Wilder",
+        "tipo": "casa",
+        "conductor": "Wilder",
+        "lat": 10.379178,
+        "lon": -75.489432,
+        "radio_m": 200
+    },
+    {
+        "nombre": "Casa Misael",
+        "tipo": "casa",
+        "conductor": "Misael",
+        "lat": 10.372133,
+        "lon": -75.480468,
+        "radio_m": 200
+    },
+    {
+        "nombre": "Casa Luis Rafael",
+        "tipo": "casa",
+        "conductor": "Luis Rafael",
+        "lat": 10.396344,
+        "lon": -75.47455,
+        "radio_m": 200
+    },
+    {
+        "nombre": "Casa Hugo",
+        "tipo": "casa",
+        "conductor": "Hugo",
+        "lat": 10.374511,
+        "lon": -75.474478,
+        "radio_m": 200
+    }
+]
