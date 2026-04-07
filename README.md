@@ -108,3 +108,18 @@ python -m unittest tests/test_report_anomalias.py -v
 
 A diferencia de parámetros fijados duramente al código interno, si en el futuro se fundan nuevas bases vehiculares (O nuevas oficinas de Renta Ya / Casa Blanca), no necesitas conocimientos de programación. 
 La adaptación resulta inmediata con solamente editar el diccionario de `zonas.json` adjuntando Latitud, Longitud y Nombre del sector.
+
+## 🔮 Roadmap y Siguientes Pasos (Arquitectura Empresarial)
+
+Este proyecto funciona como un motor analítico avanzado mediante línea de comandos (CLI). Sin embargo, la **siguiente fase evolutiva** natural de este ecosistema contempla transformar esta herramienta en una **arquataforma web empresarial**, orquestando nuestro potente código analítico actual bajo la robustez de **Java / Spring Boot**.
+
+Los pasos a futuro diseñados para el escalamiento son:
+
+1. **Migración a Plataforma Web Institucional (Backend Spring Boot):**
+   Eliminar la dependencia de la consola local. Se desarrollará un portal administrativo donde los coordinadores y jefes accederán con credenciales seguras, pudiendo visualizar reportes interactivos bajo demanda directamente en sus navegadores.
+2. **Persistencia Histórica (Database Relacional):**
+   A través de **Spring Data JPA** y PostgreSQL/MySQL, almacenar las coordenadas, eventos y anomalías para generar trazabilidad de largo plazo. Esto permitirá responder preguntas como: *"¿Cuál ha sido la mejora general del conductor 'Jose' durante todo el año en comparación a Enero?"* sin tener que agrupar 50 Excels.
+3. **Automatización Integral y Cron Jobs (`@Scheduled`):**
+   Dejar en el pasado las descargas manuales de Excel diarias/semanales. Spring Boot se configurará para conectarse de madrugada a las APIs directas de los fabricantes de GPS (si disponen), alimentar automáticamente el flujo de procesamiento de Python y enviar alertas críticas al correo de los supervisores a primera hora de las anomalías ocurridas ayer.
+4. **Sinergia en Microservicios (Java + Python):**
+   El robusto sistema de analítica, cálculos espaciales (`haversine`) y cruce de variables en `Pandas` (Python) no se perderá: será encapsulado como un microservicio interno y ultrarrápido (vía `FastAPI`), sirviendo como el "cerebro matemático" mientras *Spring Boot* toma el papel de conductor maestro, frontend proxy, manejo de usuarios, correos y base de datos permanente.
