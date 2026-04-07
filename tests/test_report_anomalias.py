@@ -59,8 +59,9 @@ class TestReportAnomalias(unittest.TestCase):
         self.assertTrue(cond_a.iloc[0]["es_anomalia"])
         self.assertTrue(cond_a.iloc[0]["larga_horario"])
         
-        # Index 1 correspondía a 5 mins desconocida -> No es anomalía
-        self.assertFalse(cond_a.iloc[1]["es_anomalia"])
+        # Index 1 correspondía a 5 mins desconocida -> SÍ es anomalía para los reportes de repetidas, pero NO larga
+        self.assertTrue(cond_a.iloc[1]["es_anomalia"])
+        self.assertFalse(cond_a.iloc[1]["larga_horario"])
         
         # Index 2 correspondía a 2 horas pero en Casa_X (zona autorizada) -> No es anomalía
         self.assertFalse(cond_a.iloc[2]["es_anomalia"])

@@ -142,8 +142,8 @@ def _clasificar_paradas(df_det: pd.DataFrame, zonas: List[dict]) -> pd.DataFrame
         fuera = hora < HORARIO_INICIO or hora >= HORARIO_FIN
         larga = (HORARIO_INICIO <= hora < HORARIO_FIN) and dur_seg > UMBRAL_PARADA_LARGA_SEG
 
-        # Solo es anomalía si es parada larga en horario, o si es nocturna/fuera de horario
-        es_anom.append(noct or fuera or larga)
+        # Toda parada en zona desconocida cuenta para revisión (especialmente para encontrar lugares frecuentes)
+        es_anom.append(True)
         es_nocturna.append(noct)
         fuera_horario.append(fuera)
         larga_horario.append(larga)
