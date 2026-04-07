@@ -627,6 +627,8 @@ def _productividad_semaforo(det_c: pd.DataFrame) -> List[dict]:
 def _paradas_largas(det_c: pd.DataFrame, umbral_seg: int) -> List[dict]:
     if det_c.empty:
         return []
+    
+    # Filtramos CUALQUIER parada que supere los 30 min (tanto autorizadas como anomalías)
     sub = det_c[det_c["duracion_seg"] >= umbral_seg].copy()
     if sub.empty:
         return []
@@ -648,7 +650,8 @@ def _paradas_largas(det_c: pd.DataFrame, umbral_seg: int) -> List[dict]:
                 "zona": r.get("zona_nombre", "-"),
             }
         )
-    rows.sort(key=lambda r: r["duracion_seg"], reverse=True)
+    # Ordenamos primero ALFABÉTICAMENTE por trabajador (conductor), y luego por la parada más larga de ese conductor
+    rows.sort(key=lambda r: (r["conductor"], -r["duracion_seg"]))
     return rows
 
 
