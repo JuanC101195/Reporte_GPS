@@ -2,6 +2,9 @@
 
 Un robusto sistema de análisis de datos GPS para la flota de vehículos en Cartagena (Colombia). Este proyecto procesa reportes crudos de GPS, extrae métricas operativas y genera reportes HTML profesionales interactivos, enfocados en detectar anomalías operativas, paradas no autorizadas y visualización de rutas recurrentes.
 
+> 🔴 **¿Eres un jefe o revisor?**  
+> 👉 **[VER EL ÚLTIMO REPORTE INTERACTIVO EN LÍNEA](https://juanc101195.github.io/Reporte_GPS/)** 👈
+
 ## 🚀 Características Principales
 
 - **Análisis de Paradas y Zonas Conocidas:** Identificación automática de oficinas y bases (ej: Casa Blanca, Renta Ya) mediante radios de proximidad (200m).
