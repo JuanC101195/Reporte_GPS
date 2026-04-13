@@ -37,6 +37,7 @@ from .anomalias.core import (
     zona_referencia_mas_cercana,
 )
 from .geo import haversine_metros
+from .maps_preview import preview_cell_html
 from .transform import parse_coordinates, parse_duracion_segundos
 from .validation import parse_dates
 
@@ -115,16 +116,7 @@ def generar_html_anomalias(df: pd.DataFrame, zonas: list[dict], output_path: Pat
         clusters = sorted(clusters, key=lambda c: int(c.get("tiempo_total_seg", 0)), reverse=True)
         rows = []
         for c in clusters:
-            img_html = "-"
-            img_url = c.get("imagen_url")
-            if img_url and img_url != "-":
-                # Check if it exists in reportes/img
-                img_path = Path("reportes/img") / f"{img_url}.jpeg"
-                if img_path.exists():
-                    img_html = f"<a href='img/{img_url}.jpeg' target='_blank'><img src='img/{img_url}.jpeg' style='max-height:30px;border-radius:4px;'></a>"
-                else:
-                    img_html = f"Sin imagen ({img_url})"
-
+            preview = preview_cell_html(c.get("lat"), c.get("lon"))
             rows.append(
                 "<tr>"
                 f"<td>{c['coord']}</td>"
@@ -134,14 +126,14 @@ def generar_html_anomalias(df: pd.DataFrame, zonas: list[dict], output_path: Pat
                 f"<td>{c['zona_ref_dist_m']}m de {c['zona_ref_nombre']}</td>"
                 f"<td>{c['primera_visita']}</td>"
                 f"<td>{c['ultima_visita']}</td>"
-                f"<td>{img_html}</td>"
+                f"<td>{preview}</td>"
                 "</tr>"
             )
         clusters_html.append(
             "<div class='cond-block' id='cond-" + conductor.replace(" ", "_") + "'>"
             f"<div class='cond-name'>👤 {conductor}</div>"
             "<div class='tbl-wrap'>"
-            "<table><thead><tr><th>Coordenada</th><th>Visitas</th><th>Fuera horario</th><th>Tiempo acum.</th><th>Zona ref.</th><th>Primera</th><th>Ultima</th><th>Imagen</th></tr></thead>"
+            "<table><thead><tr><th>Coordenada</th><th>Visitas</th><th>Fuera horario</th><th>Tiempo acum.</th><th>Zona ref.</th><th>Primera</th><th>Ultima</th><th>Vista previa</th></tr></thead>"
             f"<tbody>{''.join(rows)}</tbody></table>"
             "</div>"
             "</div>"

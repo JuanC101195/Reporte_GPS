@@ -228,6 +228,8 @@ def _cluster_desconocidos(df_anomalias: pd.DataFrame, conductor: str) -> list[di
                 "conductor": conductor,
                 "placa": sub["Placa"].mode().iloc[0] if not sub["Placa"].mode().empty else "-",
                 "coord": coord,
+                "lat": float(c["centroid_lat"]),
+                "lon": float(c["centroid_lon"]),
                 "visitas": len(sub),
                 "visitas_fuera_horario": int(sub["fuera_horario"].sum()),
                 "tiempo_total_seg": int(sub["duracion_seg"].sum()),
