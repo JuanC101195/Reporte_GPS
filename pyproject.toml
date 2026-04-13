@@ -3,13 +3,13 @@ name = "reporte-gps"
 version = "0.1.0"
 description = "Sistema de análisis de anomalías GPS para flota de vehículos en Cartagena"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 authors = [{ name = "Juan Esteban Cardozo" }]
 license = { text = "Proprietary" }
 
 [tool.ruff]
 line-length = 120
-target-version = "py310"
+target-version = "py312"
 extend-exclude = ["docs", "reportes", ".venv"]
 
 [tool.ruff.lint]
@@ -28,7 +28,7 @@ ignore = [
 
 [tool.black]
 line-length = 120
-target-version = ["py310"]
+target-version = ["py312"]
 extend-exclude = "(docs|reportes|\\.venv)"
 
 [tool.pytest.ini_options]

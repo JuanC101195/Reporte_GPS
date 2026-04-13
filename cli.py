@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """Command line interface for GPS analysis pipeline."""
 
 import argparse
@@ -53,7 +52,7 @@ def _pdf(args):
 
 def _anomalias(args):
     from src import io_loader, transform
-    from src.report_anomalias import generar_html_anomalias, ZONAS_CONOCIDAS
+    from src.report_anomalias import ZONAS_CONOCIDAS, generar_html_anomalias
 
     p = Path(args.input)
     if p.suffix.lower() in (".xlsx", ".xls"):

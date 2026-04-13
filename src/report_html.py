@@ -1,9 +1,9 @@
-# -*- coding: utf-8 -*-
 """Generate HTML reports by placa."""
 
 import logging
 from datetime import datetime
 from pathlib import Path
+
 import pandas as pd
 
 logger = logging.getLogger(__name__)
@@ -124,7 +124,7 @@ def generate_single_html(df_placa, placa, output_dir):
     for i, (_, row) in enumerate(df.iterrows(), 1):
         estado = str(row.get("Estado", ""))
         badge = "badge-det" if estado == "Detenido" else "badge-mov"
-        
+
         img_name = row.get("imagen_url", "")
         if pd.isna(img_name) or not img_name:
             img_html = "-"
