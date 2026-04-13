@@ -33,6 +33,7 @@ from .anomalias.core import (
     _paradas_largas,
     _resumen_oficinas,
     _ubicacion_repetida_semanal,
+    ranking_conductores,
     zona_mas_cercana,
     zona_referencia_mas_cercana,
 )
@@ -99,8 +100,15 @@ def generar_html_anomalias(df: pd.DataFrame, zonas: list[dict], output_path: Pat
 
     ubicacion_rep = _ubicacion_repetida_semanal(det_c)
     oficinas_rows = _resumen_oficinas(det_c)
-    paradas_largas = _paradas_largas(det_c, UMBRAL_PARADA_LARGA_SEG)
+    paradas_largas = _paradas_largas(det_c, UMBRAL_PARADA_LARGA_SEG, only_anomalas=True)
     coincidencias = _coincidencias_ruta(det_c)
+    ranking = ranking_conductores(det_c, anom, clusters_por_conductor)
+
+    # Executive-level KPIs aggregated from the ranking.
+    total_conductores = len(ranking)
+    total_en_rojo = sum(1 for r in ranking if r["nivel"] == "ROJO")
+    total_alertas_crit = sum(r["paradas_anomalas"] for r in ranking)
+    total_horas_desc = sum(r["horas_desconocidas"] for r in ranking)
 
     periodo = periodo_label or (
         f"{det_c['Comienzo'].min()} a {det_c['Comienzo'].max()}" if not det_c.empty else "-"
@@ -117,12 +125,21 @@ def generar_html_anomalias(df: pd.DataFrame, zonas: list[dict], output_path: Pat
         rows = []
         for c in clusters:
             preview = preview_cell_html(c.get("lat"), c.get("lon"))
+            # Severity by visits + accumulated time in unknown place.
+            visitas = int(c.get("visitas", 0))
+            tiempo_seg = int(c.get("tiempo_total_seg", 0))
+            if visitas >= 5 or tiempo_seg > 4 * 3600:
+                row_cls = "row-crit"
+            elif visitas >= 3 or tiempo_seg > 2 * 3600:
+                row_cls = "row-alta"
+            else:
+                row_cls = "row-media"
             rows.append(
-                "<tr>"
+                f"<tr class='{row_cls}'>"
                 f"<td>{c['coord']}</td>"
-                f"<td>{c['visitas']}</td>"
+                f"<td>{visitas}</td>"
                 f"<td>{c['visitas_fuera_horario']}</td>"
-                f"<td>{_fmt_horas(c['tiempo_total_seg'])}</td>"
+                f"<td>{_fmt_horas(tiempo_seg)}</td>"
                 f"<td>{c['zona_ref_dist_m']}m de {c['zona_ref_nombre']}</td>"
                 f"<td>{c['primera_visita']}</td>"
                 f"<td>{c['ultima_visita']}</td>"
@@ -166,13 +183,20 @@ def generar_html_anomalias(df: pd.DataFrame, zonas: list[dict], output_path: Pat
 
     paradas_largas_html = []
     for r in paradas_largas:
+        duracion_seg = int(r["duracion_seg"])
+        if r.get("es_nocturna") or duracion_seg > 4 * 3600:
+            row_cls = "row-crit"
+        elif r.get("fuera_horario") or duracion_seg > 2 * 3600:
+            row_cls = "row-alta"
+        else:
+            row_cls = "row-media"
         paradas_largas_html.append(
-            "<tr>"
+            f"<tr class='{row_cls}'>"
             f"<td>{r['conductor']}</td>"
             f"<td>{r['placa']}</td>"
             f"<td>{r['fecha']}</td>"
             f"<td>{r['hora']}</td>"
-            f"<td>{_fmt_horas(r['duracion_seg'])}</td>"
+            f"<td>{_fmt_horas(duracion_seg)}</td>"
             f"<td>{r['coord']}</td>"
             f"<td>{r['zona']}</td>"
             "</tr>"
@@ -188,6 +212,79 @@ def generar_html_anomalias(df: pd.DataFrame, zonas: list[dict], output_path: Pat
             f"<td>{r['conductores']}</td>"
             f"<td>{r['n_placas']}</td>"
             "</tr>"
+        )
+
+    # KPI bar: 4 numeros que el dueno lee en 5 segundos.
+    kpi_crit_color = "red" if total_alertas_crit > 0 else "green"
+    kpi_horas_color = "red" if total_horas_desc > 20 else ("amber" if total_horas_desc > 5 else "green")
+    kpi_rojos_color = "red" if total_en_rojo > 0 else "green"
+    kpi_bar_html = (
+        "<div class='kpi-row'>"
+        "<div class='kpi'>"
+        "<div class='kpi-label'>Alertas criticas</div>"
+        f"<div class='kpi-value {kpi_crit_color}'>{total_alertas_crit}</div>"
+        "<div class='kpi-sub'>paradas largas en zona desconocida</div>"
+        "</div>"
+        "<div class='kpi'>"
+        "<div class='kpi-label'>Horas en zonas desconocidas</div>"
+        f"<div class='kpi-value {kpi_horas_color}'>{total_horas_desc:.0f}h</div>"
+        "<div class='kpi-sub'>tiempo acumulado de la flota</div>"
+        "</div>"
+        "<div class='kpi'>"
+        "<div class='kpi-label'>Conductores monitoreados</div>"
+        f"<div class='kpi-value blue'>{total_conductores}</div>"
+        "<div class='kpi-sub'>flota activa en el periodo</div>"
+        "</div>"
+        "<div class='kpi'>"
+        "<div class='kpi-label'>En alerta (rojo)</div>"
+        f"<div class='kpi-value {kpi_rojos_color}'>{total_en_rojo}</div>"
+        "<div class='kpi-sub'>revisar con prioridad</div>"
+        "</div>"
+        "</div>"
+    )
+
+    # Top ofensores: tarjetas de los 5 peores conductores.
+    top_n = [r for r in ranking if r["nivel"] != "VERDE"][:5]
+    if not top_n:
+        top_ofensores_html = (
+            "<div class='panel'>"
+            "<div class='panel-head'><span class='panel-title'>🔥 Top conductores para revisar</span></div>"
+            "<div style='padding:18px 20px;color:#16a34a;font-weight:600;'>✓ Sin conductores en alerta esta semana. Flota operando dentro de rangos normales.</div>"
+            "</div>"
+        )
+    else:
+        ofensor_cards = []
+        for r in top_n:
+            nivel = r["nivel"]
+            cls = "ofensor-rojo" if nivel == "ROJO" else "ofensor-amarillo"
+            peor = r.get("peor_cluster") or {}
+            thumb = preview_cell_html(peor.get("lat"), peor.get("lon")) if peor else "-"
+            anchor = r["conductor"].replace(" ", "_")
+            detalle = (
+                f"{r['horas_desconocidas']:.1f}h desconocidas · "
+                f"{r['paradas_anomalas']} paradas >30min · "
+                f"{r['lugares_frecuentes']} lugares frecuentes · "
+                f"{r['horas_fuera_horario']:.1f}h fuera horario"
+            )
+            ofensor_cards.append(
+                f"<a class='ofensor {cls}' href='#cond-{anchor}'>"
+                f"<div class='ofensor-thumb'>{thumb}</div>"
+                "<div class='ofensor-info'>"
+                f"<div class='ofensor-name'>{r['conductor']} <span class='ofensor-placa'>· {r['placa']}</span></div>"
+                f"<div class='ofensor-score'>Score: <strong>{r['score']}</strong> · <span class='ofensor-nivel'>{nivel}</span></div>"
+                f"<div class='ofensor-detail'>{detalle}</div>"
+                "</div>"
+                "</a>"
+            )
+        top_ofensores_html = (
+            "<div class='panel'>"
+            "<div class='panel-head'><span class='panel-title'>🔥 Top conductores para revisar</span>"
+            f"<span class='panel-badge red'>{len(top_n)} en alerta</span>"
+            "</div>"
+            "<div class='ofensor-list'>"
+            + "".join(ofensor_cards)
+            + "</div>"
+            "</div>"
         )
 
     html = f"""<!DOCTYPE html>
@@ -260,6 +357,35 @@ body {{
 /* ── GRID LAYOUT ── */
 .grid-2 {{ display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }}
 .grid-1 {{ margin-bottom: 16px; }}
+
+/* ── TOP OFENSORES ── */
+.ofensor-list {{ display: flex; flex-direction: column; gap: 10px; padding: 14px; }}
+.ofensor {{
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 14px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    border: 1px solid;
+    text-decoration: none;
+    color: inherit;
+    transition: transform .15s, box-shadow .15s;
+}}
+.ofensor:hover {{ transform: translateY(-1px); box-shadow: 0 4px 10px rgba(15,23,42,.08); }}
+.ofensor-rojo {{ background: var(--red-light); border-color: var(--red-border); border-left: 4px solid var(--red); }}
+.ofensor-amarillo {{ background: var(--amber-light); border-color: var(--amber-border); border-left: 4px solid var(--amber); }}
+.ofensor-thumb {{ display: flex; align-items: center; }}
+.ofensor-info {{ display: flex; flex-direction: column; gap: 3px; min-width: 0; }}
+.ofensor-name {{ font-weight: 700; font-size: 13.5px; color: var(--navy); }}
+.ofensor-placa {{ font-size: 11.5px; color: var(--slate); font-weight: 500; }}
+.ofensor-score {{ font-size: 12px; color: var(--slate); }}
+.ofensor-rojo .ofensor-nivel {{ color: var(--red); font-weight: 700; }}
+.ofensor-amarillo .ofensor-nivel {{ color: var(--amber); font-weight: 700; }}
+.ofensor-detail {{ font-size: 11px; color: #475569; }}
+@media (max-width: 640px) {{
+    .ofensor {{ grid-template-columns: 1fr; }}
+    .ofensor-thumb {{ justify-content: flex-start; }}
+}}
 
 /* ── PANELS ── */
 .panel {{
@@ -422,6 +548,10 @@ details summary::-webkit-details-marker {{ display: none; }}
 </header>
 
 <main class="main">
+
+{kpi_bar_html}
+
+{top_ofensores_html}
 
 <div class="panel grid-1">
     <div class="panel-head">

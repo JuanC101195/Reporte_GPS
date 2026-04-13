@@ -324,32 +324,149 @@ def _resumen_oficinas(det_c: pd.DataFrame) -> list[dict]:
     return rows
 
 
-def _paradas_largas(det_c: pd.DataFrame, umbral_seg: int) -> list[dict]:
+def _paradas_largas(
+    det_c: pd.DataFrame,
+    umbral_seg: int,
+    only_anomalas: bool = True,
+) -> list[dict]:
+    """Return stops longer than ``umbral_seg`` seconds.
+
+    When ``only_anomalas`` is True (default), stops that match a known
+    office or worker home are filtered out — the boss only cares about
+    long stops in unknown places. Pass ``only_anomalas=False`` to audit
+    all long stops regardless of zone.
+    """
     if det_c.empty:
         return []
 
     sub = det_c[det_c["duracion_seg"] >= umbral_seg].copy()
     if sub.empty:
         return []
+    if only_anomalas and "tipo_zona" in sub.columns:
+        sub = sub[sub["tipo_zona"].isna()].copy()
+        if sub.empty:
+            return []
     sub["inicio_dt"] = parse_dates(sub["Comienzo"])
     sub = sub[sub["inicio_dt"].notna()].copy()
 
     rows = []
     for _, r in sub.iterrows():
-        hora = r["inicio_dt"].strftime("%H:%M")
-        fecha = r["inicio_dt"].strftime("%d-%m-%Y")
+        inicio_dt = r["inicio_dt"]
+        hora_int = int(inicio_dt.hour)
         rows.append(
             {
                 "conductor": r.get("Conductor", "-"),
                 "placa": r.get("Placa", "-"),
-                "fecha": fecha,
-                "hora": hora,
+                "fecha": inicio_dt.strftime("%d-%m-%Y"),
+                "hora": inicio_dt.strftime("%H:%M"),
+                "hora_int": hora_int,
                 "duracion_seg": int(r.get("duracion_seg", 0)),
                 "coord": r.get("Posicion", "-"),
                 "zona": r.get("zona_nombre", "-"),
+                "fuera_horario": hora_int < HORARIO_INICIO or hora_int >= HORARIO_FIN,
+                "es_nocturna": hora_int >= HORA_NOCTURNA_INICIO or hora_int < HORA_NOCTURNA_FIN,
             }
         )
     rows.sort(key=lambda r: (r["conductor"], -r["duracion_seg"]))
+    return rows
+
+
+# Thresholds for the executive-level suspicion score. Calibrated for a
+# delivery fleet in Cartagena where drivers normally spend most of their
+# time outside known bases — the strong signal is *frequent* unknown
+# places, NOT raw hours in unknowns (that is just their job).
+SCORE_THRESHOLD_ROJO = 30.0
+SCORE_THRESHOLD_AMARILLO = 12.0
+
+# Weights per factor (tuned with the boss-as-user perspective).
+# lugares_frecuentes is the king signal: revisiting the same unknown
+# spot 3+ times within a week is what justifies a conversation.
+WEIGHT_HORAS_DESC = 0.5
+WEIGHT_PARADAS_ANOM = 3.0
+WEIGHT_LUGARES_FREC = 15.0
+WEIGHT_HORAS_FUERA = 4.0
+
+
+def _nivel_score(score: float) -> str:
+    if score >= SCORE_THRESHOLD_ROJO:
+        return "ROJO"
+    if score >= SCORE_THRESHOLD_AMARILLO:
+        return "AMARILLO"
+    return "VERDE"
+
+
+def ranking_conductores(
+    det_c: pd.DataFrame,
+    anom: pd.DataFrame,
+    clusters_por_conductor: dict[str, list[dict]] | None = None,
+) -> list[dict]:
+    """Return conductors sorted by suspicion score, worst first.
+
+    The score combines four factors weighted by business impact:
+
+        score = horas_desconocidas  * WEIGHT_HORAS_DESC   (0.5)
+              + paradas_anomalas    * WEIGHT_PARADAS_ANOM (3)
+              + lugares_frecuentes  * WEIGHT_LUGARES_FREC (15)
+              + horas_fuera_horario * WEIGHT_HORAS_FUERA  (4)
+
+    Each entry in the result contains ``conductor``, ``placa``, the raw
+    inputs, the computed ``score``, a ``nivel`` label (ROJO/AMARILLO/VERDE)
+    and the ``peor_cluster`` (worst unknown place the driver visited).
+    """
+    if det_c.empty:
+        return []
+
+    clusters_por_conductor = clusters_por_conductor or {}
+    rows: list[dict] = []
+
+    for conductor in sorted(det_c["Conductor"].dropna().unique()):
+        cdet = det_c[det_c["Conductor"] == conductor]
+        canom = anom[anom["Conductor"] == conductor] if not anom.empty else anom.iloc[0:0]
+        placa = cdet["Placa"].mode().iloc[0] if not cdet["Placa"].mode().empty else "-"
+
+        horas_desc = float(canom["duracion_seg"].sum()) / 3600.0 if not canom.empty else 0.0
+        paradas_anom = int((canom["duracion_seg"] >= UMBRAL_PARADA_LARGA_SEG).sum()) if not canom.empty else 0
+
+        clusters = clusters_por_conductor.get(conductor, [])
+        lugares_frec = sum(1 for cl in clusters if cl.get("visitas", 0) >= VISITAS_LUGAR_FRECUENTE)
+
+        if not canom.empty:
+            mask_fuera = canom.get("fuera_horario", pd.Series(False, index=canom.index)).astype(bool)
+            mask_noct = canom.get("es_nocturna", pd.Series(False, index=canom.index)).astype(bool)
+            horas_fuera = float(canom.loc[mask_fuera | mask_noct, "duracion_seg"].sum()) / 3600.0
+        else:
+            horas_fuera = 0.0
+
+        score = (
+            horas_desc * WEIGHT_HORAS_DESC
+            + paradas_anom * WEIGHT_PARADAS_ANOM
+            + lugares_frec * WEIGHT_LUGARES_FREC
+            + horas_fuera * WEIGHT_HORAS_FUERA
+        )
+        nivel = _nivel_score(score)
+
+        peor_cluster = None
+        if clusters:
+            peor_cluster = max(
+                clusters,
+                key=lambda c: int(c.get("visitas", 0)) * int(c.get("tiempo_total_seg", 0)),
+            )
+
+        rows.append(
+            {
+                "conductor": conductor,
+                "placa": placa,
+                "horas_desconocidas": round(horas_desc, 2),
+                "paradas_anomalas": paradas_anom,
+                "lugares_frecuentes": lugares_frec,
+                "horas_fuera_horario": round(horas_fuera, 2),
+                "score": round(score, 1),
+                "nivel": nivel,
+                "peor_cluster": peor_cluster,
+            }
+        )
+
+    rows.sort(key=lambda r: -r["score"])
     return rows
 
 
