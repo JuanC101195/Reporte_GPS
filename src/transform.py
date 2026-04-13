@@ -126,7 +126,9 @@ def load_worker_homes(homes_file=None):
     return homes_by_placa
 
 
-def load_photos_db(photos_file="C:/Users/LeNoVo/Desktop/UBICACION.xlsx"):
+def load_photos_db(photos_file=None):
+    if not photos_file:
+        return []
     path = Path(photos_file)
     if not path.exists():
         return []
@@ -264,7 +266,7 @@ def add_derived_columns(df, homes_file=None, photos_file=None):
         df.loc[stop_mask, "longitud"] = coords.apply(lambda x: x[1])
 
         homes_by_placa = load_worker_homes(homes_file)
-        photos_db = load_photos_db(photos_file) if photos_file else load_photos_db()
+        photos_db = load_photos_db(photos_file)
         for idx in df[stop_mask].index:
             lat = df.at[idx, "latitud"]
             lon = df.at[idx, "longitud"]

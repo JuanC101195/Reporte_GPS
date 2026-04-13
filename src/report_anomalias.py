@@ -25,11 +25,12 @@ VISITAS_LUGAR_FRECUENTE = 3
 
 # Zonas conocidas cargadas desde json (con fallback en duro por si se borra)
 import json
-import os
+
+_ZONAS_JSON_PATH = Path(__file__).resolve().parent.parent / "zonas.json"
 
 ZONAS_CONOCIDAS = []
 try:
-    with open("zonas.json", "r", encoding="utf-8") as f:
+    with open(_ZONAS_JSON_PATH, "r", encoding="utf-8") as f:
         ZONAS_CONOCIDAS = json.load(f)
 except Exception:
     ZONAS_CONOCIDAS = [
