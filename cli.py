@@ -52,34 +52,20 @@ def _pdf(args):
 
 
 def _anomalias(args):
-    load_excel = importlib.import_module("src.io_loader").load_excel
-    load_csv = importlib.import_module("src.io_loader").load_csv
-    add_derived_columns = importlib.import_module("src.transform").add_derived_columns
-    anom_mod = importlib.import_module("src.report_anomalias")
-    generar_html_anomalias = anom_mod.generar_html_anomalias
-    zonas_conocidas = anom_mod.ZONAS_CONOCIDAS
-
-    p = Path(args.input)
-    out = Path(args.out_dir)
-    out.mkdir(parents=True, exist_ok=True)
-
-    df = load_excel(p, sheet_name=args.sheet) if p.suffix.lower() in (".xlsx", ".xls") else load_csv(p)
-    df = add_derived_columns(df)
-
-    output_file = out / "reporte_anomalias.html"
-def _anomalias(args):
-    # Usar pipeline para leer el df limpio
-    from src import pipeline
+    from src import io_loader, transform
     from src.report_anomalias import generar_html_anomalias, ZONAS_CONOCIDAS
 
-    from src import io_loader, transform
-    df = io_loader.load_excel(Path(args.input), sheet_name=args.sheet)
+    p = Path(args.input)
+    if p.suffix.lower() in (".xlsx", ".xls"):
+        df = io_loader.load_excel(p, sheet_name=args.sheet)
+    else:
+        df = io_loader.load_csv(p)
     df = transform.add_derived_columns(df, photos_file=getattr(args, "photos_file", None))
 
     output_dir = Path(args.out_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     output_file = output_dir / "reporte_anomalias.html"
-    
+
     generar_html_anomalias(df, ZONAS_CONOCIDAS, output_file, periodo_label=args.periodo)
     print(f"Reporte generado: {output_file}")
 

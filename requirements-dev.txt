@@ -1,0 +1,13 @@
+# Development dependencies for Reporte_GPS
+-r requirements.txt
+
+# Testing
+pytest>=7.0.0
+pytest-cov>=4.0.0
+
+# Lint & format
+ruff>=0.4.0
+black>=24.0.0
+
+# Git hooks
+pre-commit>=3.0.0
