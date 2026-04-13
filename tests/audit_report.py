@@ -29,7 +29,7 @@ card_pattern = re.compile(
 )
 cards = card_pattern.findall(content)
 print(f"\n[TOP OFENSORES] {len(cards)} cards")
-for cls, name, placa, score, nivel, detail in cards:
+for _cls, name, _placa, score, nivel, detail in cards:
     safe_name = "".join(ch if ord(ch) < 128 else "?" for ch in name.strip())
     safe_detail = "".join(ch if ord(ch) < 128 else "?" for ch in detail.strip())
     print(f"  [{nivel:8}] {safe_name:25} score {score:>6}  {safe_detail}")

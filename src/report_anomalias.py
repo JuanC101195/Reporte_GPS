@@ -184,20 +184,29 @@ def generar_html_anomalias(df: pd.DataFrame, zonas: list[dict], output_path: Pat
     paradas_largas_html = []
     for r in paradas_largas:
         duracion_seg = int(r["duracion_seg"])
-        if r.get("es_nocturna") or duracion_seg > 4 * 3600:
+        n_veces = int(r.get("n_veces", 1))
+        if r.get("es_nocturna") or duracion_seg > 4 * 3600 or n_veces >= 5:
             row_cls = "row-crit"
-        elif r.get("fuera_horario") or duracion_seg > 2 * 3600:
+        elif r.get("fuera_horario") or duracion_seg > 2 * 3600 or n_veces >= 3:
             row_cls = "row-alta"
         else:
             row_cls = "row-media"
+        rango_horario = f"{r['hora']} → {r.get('hora_fin', '-')}"
+        veces_html = (
+            f"<span class='badge-crit'>{n_veces}x</span>"
+            if n_veces >= 5
+            else (f"<span class='badge-alto'>{n_veces}x</span>" if n_veces >= 3 else f"{n_veces}x")
+        )
+        preview = preview_cell_html(r.get("lat"), r.get("lon"))
         paradas_largas_html.append(
             f"<tr class='{row_cls}'>"
             f"<td>{r['conductor']}</td>"
             f"<td>{r['placa']}</td>"
             f"<td>{r['fecha']}</td>"
-            f"<td>{r['hora']}</td>"
+            f"<td>{rango_horario}</td>"
             f"<td>{_fmt_horas(duracion_seg)}</td>"
-            f"<td>{r['coord']}</td>"
+            f"<td>{veces_html}</td>"
+            f"<td>{preview}</td>"
             f"<td>{r['zona']}</td>"
             "</tr>"
         )
@@ -606,15 +615,16 @@ details summary::-webkit-details-marker {{ display: none; }}
     </details>
 
     <details>
-        <summary>Paradas mayores a 30 minutos (hora del dia)</summary>
+        <summary>Paradas mayores a 30 minutos en zonas desconocidas</summary>
         <div class="tbl-wrap">
             <table>
                 <thead><tr>
                     <th>Conductor</th><th>Placa</th>
-                    <th>Fecha</th><th>Hora</th>
-                    <th>Duracion</th><th>Coordenada</th><th>Zona</th>
+                    <th>Fecha</th><th>Inicio → Fin</th>
+                    <th>Duracion</th><th>Veces</th>
+                    <th>Vista previa</th><th>Zona</th>
                 </tr></thead>
-                <tbody>{''.join(paradas_largas_html) if paradas_largas_html else '<tr><td colspan="7">Sin paradas mayores a 30 minutos.</td></tr>'}</tbody>
+                <tbody>{''.join(paradas_largas_html) if paradas_largas_html else '<tr><td colspan="8">Sin paradas mayores a 30 minutos en zona desconocida.</td></tr>'}</tbody>
             </table>
         </div>
     </details>

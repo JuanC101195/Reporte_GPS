@@ -9,9 +9,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
-from ..geo import haversine_metros
+from ..geo import haversine_matrix, haversine_metros
 from ..transform import parse_coordinates, parse_duracion_segundos
 from ..validation import parse_dates
 
@@ -324,6 +325,9 @@ def _resumen_oficinas(det_c: pd.DataFrame) -> list[dict]:
     return rows
 
 
+RECURRENCE_RADIO_M = 50.0
+
+
 def _paradas_largas(
     det_c: pd.DataFrame,
     umbral_seg: int,
@@ -335,6 +339,15 @@ def _paradas_largas(
     office or worker home are filtered out — the boss only cares about
     long stops in unknown places. Pass ``only_anomalas=False`` to audit
     all long stops regardless of zone.
+
+    Each returned row is enriched with everything a director needs to
+    judge the stop in one glance:
+
+    - ``lat``/``lon``: raw floats so the renderer can embed a preview.
+    - ``hora`` / ``hora_fin``: start and end of the stop (HH:MM).
+    - ``n_veces``: how many times the SAME conductor has been within
+      ``RECURRENCE_RADIO_M`` of this exact spot across the whole
+      dataset (not just long stops). Tells "patron vs unique".
     """
     if det_c.empty:
         return []
@@ -349,22 +362,54 @@ def _paradas_largas(
     sub["inicio_dt"] = parse_dates(sub["Comienzo"])
     sub = sub[sub["inicio_dt"].notna()].copy()
 
+    # Preload all stops with valid coords for the recurrence count.
+    # Grouped by conductor so the per-row lookup is cheap.
+    all_by_cond: dict[str, tuple[np.ndarray, np.ndarray]] = {}
+    if {"lat", "lon", "Conductor"}.issubset(det_c.columns):
+        valid = det_c[det_c["lat"].notna() & det_c["lon"].notna()]
+        for conductor, grp in valid.groupby("Conductor"):
+            all_by_cond[str(conductor)] = (
+                grp["lat"].to_numpy(dtype=float),
+                grp["lon"].to_numpy(dtype=float),
+            )
+
     rows = []
     for _, r in sub.iterrows():
         inicio_dt = r["inicio_dt"]
         hora_int = int(inicio_dt.hour)
+        dur_seg = int(r.get("duracion_seg", 0))
+        fin_dt = inicio_dt + pd.Timedelta(seconds=dur_seg)
+
+        lat_val = r.get("lat")
+        lon_val = r.get("lon")
+        lat_f = float(lat_val) if pd.notna(lat_val) else None
+        lon_f = float(lon_val) if pd.notna(lon_val) else None
+
+        # Recurrence count: same conductor within RECURRENCE_RADIO_M.
+        n_veces = 1
+        conductor_key = str(r.get("Conductor", ""))
+        if lat_f is not None and lon_f is not None and conductor_key in all_by_cond:
+            cand_lats, cand_lons = all_by_cond[conductor_key]
+            if cand_lats.size > 0:
+                dists = haversine_matrix([lat_f], [lon_f], cand_lats, cand_lons)[0]
+                n_veces = int((dists <= RECURRENCE_RADIO_M).sum())
+
         rows.append(
             {
                 "conductor": r.get("Conductor", "-"),
                 "placa": r.get("Placa", "-"),
                 "fecha": inicio_dt.strftime("%d-%m-%Y"),
                 "hora": inicio_dt.strftime("%H:%M"),
+                "hora_fin": fin_dt.strftime("%H:%M"),
                 "hora_int": hora_int,
-                "duracion_seg": int(r.get("duracion_seg", 0)),
+                "duracion_seg": dur_seg,
                 "coord": r.get("Posicion", "-"),
+                "lat": lat_f,
+                "lon": lon_f,
                 "zona": r.get("zona_nombre", "-"),
                 "fuera_horario": hora_int < HORARIO_INICIO or hora_int >= HORARIO_FIN,
                 "es_nocturna": hora_int >= HORA_NOCTURNA_INICIO or hora_int < HORA_NOCTURNA_FIN,
+                "n_veces": n_veces,
             }
         )
     rows.sort(key=lambda r: (r["conductor"], -r["duracion_seg"]))
