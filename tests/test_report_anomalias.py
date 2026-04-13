@@ -69,16 +69,23 @@ class TestReportAnomalias(unittest.TestCase):
         self.assertEqual(cond_a.iloc[2]["zona_ref_nombre"], "Casa_X")
 
     def test_02_paradas_largas_coherencia(self):
-        """Verifica que la función _paradas_largas retorna correctamente las paradas mayores a 30 min"""
+        """Default de _paradas_largas filtra a solo zonas desconocidas."""
         det = self.df[self.df["Estado"] == "Detenido"].copy()
         res = _clasificar_paradas(det, self.zonas)
         largas = _paradas_largas(res, UMBRAL_PARADA_LARGA_SEG)
 
-        # Cond_A tiene 2 paradas largas en los datos (Index 0 y Index 2)
+        # Por default (only_anomalas=True), Cond_A tiene 1 parada larga:
+        # el Index 0 (1h en zona desconocida). El Index 2 (2h en Casa_X)
+        # queda filtrado porque es una zona autorizada.
         largas_cond_a = [r for r in largas if r["conductor"] == "Cond_A"]
-        self.assertEqual(len(largas_cond_a), 2)
+        self.assertEqual(len(largas_cond_a), 1)
 
-        # Las paradas cortas (5 min, 10 min) de Cond_D no deben estar aquí
+        # Pasando only_anomalas=False debe devolver ambas.
+        largas_all = _paradas_largas(res, UMBRAL_PARADA_LARGA_SEG, only_anomalas=False)
+        largas_cond_a_all = [r for r in largas_all if r["conductor"] == "Cond_A"]
+        self.assertEqual(len(largas_cond_a_all), 2)
+
+        # Las paradas cortas (5 min, 10 min) de Cond_D no deben estar aquí.
         largas_cond_d = [r for r in largas if r["conductor"] == "Cond_D"]
         self.assertEqual(len(largas_cond_d), 0)
 
