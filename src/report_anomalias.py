@@ -23,23 +23,14 @@ from .anomalias.core import (
     UMBRAL_PARADA_LARGA_SEG,
     VISITAS_LUGAR_FRECUENTE,
     ZONAS_CONOCIDAS,
-    _alert_tipo_corto,
-    _badge_riesgo,
     _clasificar_paradas,
     _cluster_desconocidos,
     _cluster_rows,
     _cluster_unknown_rows,
     _coincidencias_ruta,
-    _coordenadas_alerta,
-    _detectar_alertas,
     _distancia_m,
     _fmt_horas,
-    _group_alertas,
-    _heat_color,
-    _heatmap_data,
-    _metricas_conductor,
     _paradas_largas,
-    _productividad_semaforo,
     _resumen_oficinas,
     _ubicacion_repetida_semanal,
     zona_mas_cercana,
@@ -59,23 +50,14 @@ __all__ = [
     "RADIO_ZONA_CONOCIDA_M",
     "VISITAS_LUGAR_FRECUENTE",
     "ZONAS_CONOCIDAS",
-    "_alert_tipo_corto",
-    "_badge_riesgo",
     "_clasificar_paradas",
     "_cluster_desconocidos",
     "_cluster_rows",
     "_cluster_unknown_rows",
     "_coincidencias_ruta",
-    "_coordenadas_alerta",
-    "_detectar_alertas",
     "_distancia_m",
     "_fmt_horas",
-    "_group_alertas",
-    "_heat_color",
-    "_heatmap_data",
-    "_metricas_conductor",
     "_paradas_largas",
-    "_productividad_semaforo",
     "_resumen_oficinas",
     "_ubicacion_repetida_semanal",
     "generar_html_anomalias",
@@ -109,88 +91,19 @@ def generar_html_anomalias(df: pd.DataFrame, zonas: list[dict], output_path: Pat
     det_c = _clasificar_paradas(det, zonas)
     anom = det_c[det_c["es_anomalia"]].copy()
 
-    resumen_rows = []
-    for placa in sorted(df["Placa"].dropna().unique()):
-        dcond = df[df["Placa"] == placa]
-        acond = anom[anom["Placa"] == placa]
-        m = _metricas_conductor(dcond, placa, acond)
-        resumen_rows.append(m)
-
-    alerts = _detectar_alertas(anom)[:40]
-
     clusters_por_conductor = {}
     for conductor in sorted(anom["Conductor"].dropna().unique()):
         clusters = _cluster_desconocidos(anom, conductor)
         clusters_por_conductor[conductor] = [c for c in clusters if c["visitas"] >= 2][:5]
 
-    dias, conductores, heat, heat_tipos, total_cond, total_dia = _heatmap_data(anom)
-
     ubicacion_rep = _ubicacion_repetida_semanal(det_c)
     oficinas_rows = _resumen_oficinas(det_c)
-    productividad_rows = _productividad_semaforo(det_c)
     paradas_largas = _paradas_largas(det_c, UMBRAL_PARADA_LARGA_SEG)
     coincidencias = _coincidencias_ruta(det_c)
 
     periodo = periodo_label or (
         f"{det_c['Comienzo'].min()} a {det_c['Comienzo'].max()}" if not det_c.empty else "-"
     )
-
-    resumen_html = []
-    for r in resumen_rows:
-        resumen_html.append(
-            "<tr>"
-            f"<td>{r['conductor']}</td>"
-            f"<td>{r['placa']}</td>"
-            f"<td>{r['paradas_largas']}</td>"
-            f"<td>{_fmt_horas(r['horas_largas'])}</td>"
-            f"<td>{r['paradas_fuera']}</td>"
-            f"<td>{_fmt_horas(r['horas_fuera'])}</td>"
-            f"<td>{r['paradas_noct']}</td>"
-            f"<td>{_fmt_horas(r['horas_noct'])}</td>"
-            f"<td>{_badge_riesgo(r['riesgo'])}</td>"
-            "</tr>"
-        )
-
-    alertas_filtradas = []
-    for a in alerts:
-        dist = _distancia_m(a.get("zona_ref_dist_m"))
-        if dist is None or dist > 200:
-            alertas_filtradas.append(a)
-
-    alertas_grouped = _group_alertas(alertas_filtradas, max_dist_m=50.0)
-    sev_rank = {"CRITICA": 0, "ALTA": 1, "MEDIA": 2}
-    alertas_grouped.sort(
-        key=lambda a: (
-            sev_rank.get(a.get("severidad"), 9),
-            -int(a.get("duracion_total_seg", a.get("duracion_seg", 0))),
-        )
-    )
-    rows_alertas = []
-    for a in alertas_grouped:
-        cls = "row-media"
-        if a.get("severidad") == "CRITICA":
-            cls = "row-crit"
-        elif a.get("severidad") == "ALTA":
-            cls = "row-alta"
-
-        duracion = _fmt_horas(int(a.get("duracion_total_seg", a.get("duracion_seg", 0))))
-        veces = int(a.get("n_veces", 1))
-        veces_txt = f" · {veces} veces" if veces > 1 else ""
-        fecha_txt = a.get("fecha_rango", a.get("fecha", "-"))
-        tipo_corto = _alert_tipo_corto(a)
-        ubicacion = a.get("posicion", "-")
-        distancia = f"a {a.get('zona_ref_dist_m','-')}m de {a.get('zona_ref_nombre','-')}"
-
-        rows_alertas.append(
-            "<tr class='" + cls + "'>"
-            f"<td class='alert-type'>{tipo_corto}<span class='sev-tag'>{a.get('severidad','')}</span></td>"
-            f"<td>{a.get('conductor','-')}<br><span class='muted'>{a.get('placa','-')}</span></td>"
-            f"<td>{fecha_txt}</td>"
-            f"<td>{duracion}{veces_txt}</td>"
-            f"<td>{ubicacion}</td>"
-            f"<td>{distancia}</td>"
-            "</tr>"
-        )
 
     clusters_html = []
     for conductor, clusters in clusters_por_conductor.items():
@@ -234,45 +147,7 @@ def generar_html_anomalias(df: pd.DataFrame, zonas: list[dict], output_path: Pat
             "</div>"
         )
 
-    heat_rows = []
-    for d in dias:
-        row_total = total_dia.get(d, 0)
-        cols = [f"<td class='heat-day'>{d}</td>"]
-        for c in conductores:
-            n = int(heat[d][c])
-            tipos = heat_tipos.get(d, {}).get(c, {"larga": 0, "fuera": 0, "noct": 0})
-            detalle = f"⏱️ Largas: {tipos['larga']} | 🌅 Fuera: {tipos['fuera']} | 🌙 Nocturnas: {tipos['noct']}"
-            tooltip = f"🔴 {n} anomalías" if n >= 10 else (f"🟠 {n} anomalías" if n >= 7 else (f"🟡 {n} anomalías" if n >= 4 else (f"🟢 {n} anomalías" if n >= 1 else "⚪ 0 anomalías")))
-            tooltip = f"{tooltip} | {detalle}"
-            crit = " ⚠️" if n >= 10 else ""
-            outline = "outline: 1px solid #b91c1c;" if n >= 10 else ""
-            cols.append(
-                f"<td class='heat-cell' style='background:{_heat_color(n)}; text-align:center; {outline}' title='{tooltip}'>{n}{crit}</td>"
-            )
-        cols.append(f"<td class='heat-total'>{row_total}</td>")
-        heat_rows.append(f"<tr>{''.join(cols)}</tr>")
-
-    total_cols = ["<td class='heat-total'>Total</td>"]
-    for c in conductores:
-        total_cols.append(f"<td class='heat-total'>{total_cond.get(c, 0)}</td>")
-    total_cols.append(f"<td class='heat-total'>{sum(total_dia.values())}</td>")
-    heat_rows.append(f"<tr class='heat-total-row'>{''.join(total_cols)}</tr>")
-
     fecha_gen = datetime.now().strftime("%d-%m-%Y %H:%M")
-
-    productividad_html = []
-    for r in productividad_rows:
-        nivel = r["nivel"]
-        badge_cls = "badge-verde" if nivel == "VERDE" else ("badge-amarillo" if nivel == "AMARILLO" else "badge-rojo")
-        productividad_html.append(
-            "<tr>"
-            f"<td>{r['conductor']}</td>"
-            f"<td>{r['placa']}</td>"
-            f"<td>{r['avg_min']:.1f} min</td>"
-            f"<td>{r['unknown_pct']:.0f}%</td>"
-            f"<td><span class='{badge_cls}'>{nivel}</span></td>"
-            "</tr>"
-        )
 
     repetidas_html = []
     for r in ubicacion_rep:
@@ -321,54 +196,6 @@ def generar_html_anomalias(df: pd.DataFrame, zonas: list[dict], output_path: Pat
             f"<td>{r['conductores']}</td>"
             f"<td>{r['n_placas']}</td>"
             "</tr>"
-        )
-
-    total_det_por_conductor = {}
-    if not det_c.empty:
-        total_det_por_conductor = det_c.groupby("Conductor")["duracion_seg"].sum().to_dict()
-
-    nivel_rank = {"ROJO": 0, "AMARILLO": 1, "VERDE": 2}
-    semaforo_cards = []
-    for r in sorted(productividad_rows, key=lambda x: (nivel_rank.get(x["nivel"], 9), -total_det_por_conductor.get(x["conductor"], 0))):
-        nivel = r["nivel"]
-        cls = "rojo" if nivel == "ROJO" else ("amarillo" if nivel == "AMARILLO" else "verde")
-        total_det = int(total_det_por_conductor.get(r["conductor"], 0))
-        stat_txt = f"{_fmt_horas(total_det)} detenido · {r['avg_min']:.0f} min/parada"
-        semaforo_cards.append(
-            "<div class=\"cond-card " + cls + "\">"
-            f"<div class=\"cond-name\"><span class=\"cond-dot\"></span>{r['conductor']}</div>"
-            f"<div class=\"cond-placa\">{r['placa']}</div>"
-            f"<div class=\"cond-stat\">{stat_txt}</div>"
-            "</div>"
-        )
-
-    alertas_criticas = [a for a in alertas_grouped if a.get("severidad") == "CRITICA"]
-    alertas_criticas_html = []
-    for a in alertas_criticas:
-        fecha_txt = a.get("fecha_rango", a.get("fecha", "-"))
-        veces = int(a.get("n_veces", 1))
-        veces_txt = f" · {veces} veces" if veces > 1 else ""
-        duracion = _fmt_horas(int(a.get("duracion_total_seg", a.get("duracion_seg", 0))))
-        dist = a.get("zona_ref_dist_m", "-")
-        zona = a.get("zona_ref_nombre", "-")
-        dist_txt = f"{dist}m de {zona}" if dist not in (None, "-") else "-"
-        lat, lon = _coordenadas_alerta(a)
-        coord_txt = f"{lat:.6f}, {lon:.6f}" if lat is not None and lon is not None else "-"
-        detalle = f"{a.get('tipo','Alerta')} · {fecha_txt}{veces_txt} · {dist_txt} · Coord: {coord_txt}"
-        alertas_criticas_html.append(
-            "<div class=\"alert-item\">"
-            "<div>"
-            f"<div class=\"alert-who\">{a.get('conductor','-')} <span class=\"alert-placa\">· {a.get('placa','-')}</span></div>"
-            f"<div class=\"alert-detail\">{detalle}</div>"
-            "</div>"
-            f"<div class=\"alert-dur\">{duracion}</div>"
-            "</div>"
-        )
-    if not alertas_criticas_html:
-        alertas_criticas_html.append(
-            "<div class=\"alert-item\"><div><div class=\"alert-who\">Sin alertas criticas</div>"
-            "<div class=\"alert-detail\">No se detectaron alertas criticas en el periodo.</div></div>"
-            "<div class=\"alert-dur\">-</div></div>"
         )
 
     html = f"""<!DOCTYPE html>
