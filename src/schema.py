@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Canonical schema for GPS pipeline."""
 
 CANONICAL_COLUMNS = [

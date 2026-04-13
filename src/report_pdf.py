@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Convert HTML to PDF with wkhtmltopdf/browser fallback."""
 
 import logging

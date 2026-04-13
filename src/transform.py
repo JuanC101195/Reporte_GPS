@@ -1,10 +1,9 @@
-# -*- coding: utf-8 -*-
 """Cleaning and enrichment helpers for GPS pipeline."""
 
 import re
 from pathlib import Path
-import pandas as pd
 
+import pandas as pd
 
 KNOWN_OFFICES = {
     "Casa Blanca": {"lat": 10.382486, "lon": -75.475173},
@@ -132,7 +131,7 @@ def load_photos_db(photos_file=None):
     path = Path(photos_file)
     if not path.exists():
         return []
-    
+
     try:
         df = pd.read_excel(path)
     except Exception:
@@ -142,16 +141,16 @@ def load_photos_db(photos_file=None):
     # Asegurar que las columnas coinciden aunque tengan espacios
     col_img = next((c for c in df.columns if "IMAGEN" in c.upper()), None)
     col_coord = next((c for c in df.columns if "CORDENADA" in c.upper() or "COORDENADA" in c.upper()), None)
-    
+
     if not col_img or not col_coord:
         return []
-        
+
     for _, row in df.iterrows():
         img_name = str(row[col_img]).strip()
         coords_str = str(row[col_coord]).strip()
         if not img_name or not coords_str or img_name.lower() == "nan":
             continue
-            
+
         parts = re.findall(r"-?\d+\.?\d*", coords_str)
         if len(parts) >= 2:
             photos.append({
@@ -159,7 +158,7 @@ def load_photos_db(photos_file=None):
                 "lat": float(parts[0]),
                 "lon": float(parts[1])
             })
-            
+
     return photos
 
 def identify_photo(lat, lon, photos_db, tolerance=0.0018):
@@ -270,12 +269,12 @@ def add_derived_columns(df, homes_file=None, photos_file=None):
         for idx in df[stop_mask].index:
             lat = df.at[idx, "latitud"]
             lon = df.at[idx, "longitud"]
-            
+
             # 1. Foto / Imagen
             photo = identify_photo(lat, lon, photos_db)
             if photo:
                 df.at[idx, "imagen_url"] = photo
-                
+
             # 2. Ubicaciones conocidas
             office = identify_office(lat, lon)
             if not office:

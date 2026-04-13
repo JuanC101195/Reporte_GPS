@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Orchestrator for end-to-end GPS pipeline."""
 
 import logging

@@ -1,8 +1,9 @@
-# -*- coding: utf-8 -*-
 """Load and normalize Excel/CSV for GPS data."""
 
 import unicodedata
+
 import pandas as pd
+
 from .schema import ALIAS_MAP, CANONICAL_COLUMNS
 
 
@@ -58,7 +59,7 @@ def load_excel(filepath, sheet_name=None):
     if has_double_header:
         col_names_level1 = [str(v) for v in peek.iloc[1].tolist()]
         final_names = []
-        for n0, n1 in zip(col_names_raw, col_names_level1):
+        for n0, n1 in zip(col_names_raw, col_names_level1, strict=False):
             n1_norm = _normalize(n1)
             if n1_norm and n1_norm != "nan":
                 final_names.append(n1)

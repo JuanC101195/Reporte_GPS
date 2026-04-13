@@ -1,10 +1,11 @@
-# -*- coding: utf-8 -*-
 """Data validation and quality reports for GPS pipeline."""
 
 import re
 from pathlib import Path
+
 import pandas as pd
-from .schema import VALID_STATES, DATE_FORMATS, CANONICAL_COLUMNS
+
+from .schema import CANONICAL_COLUMNS, DATE_FORMATS, VALID_STATES
 
 
 def parse_dates(series):

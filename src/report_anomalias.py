@@ -1,16 +1,15 @@
-# -*- coding: utf-8 -*-
 """Reporte ejecutivo de inteligencia operativa (anomalias GPS)."""
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from math import asin, cos, radians, sin, sqrt
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 
-from .transform import parse_duracion_segundos, parse_coordinates
+from .transform import parse_coordinates, parse_duracion_segundos
 from .validation import parse_dates
 
 # Constantes horarias operativas
@@ -24,13 +23,11 @@ RADIO_ZONA_CONOCIDA_M = 200
 VISITAS_LUGAR_FRECUENTE = 3
 
 # Zonas conocidas cargadas desde json (con fallback en duro por si se borra)
-import json
-
 _ZONAS_JSON_PATH = Path(__file__).resolve().parent.parent / "zonas.json"
 
 ZONAS_CONOCIDAS = []
 try:
-    with open(_ZONAS_JSON_PATH, "r", encoding="utf-8") as f:
+    with open(_ZONAS_JSON_PATH, encoding="utf-8") as f:
         ZONAS_CONOCIDAS = json.load(f)
 except Exception:
     ZONAS_CONOCIDAS = [
@@ -58,7 +55,7 @@ def haversine_metros(lat1: float, lon1: float, lat2: float, lon2: float) -> floa
     return 2 * r * asin(sqrt(a))
 
 
-def zona_mas_cercana(lat: float, lon: float, zonas: List[dict], conductor: Optional[str] = None) -> Tuple[Optional[dict], Optional[float]]:
+def zona_mas_cercana(lat: float, lon: float, zonas: list[dict], conductor: str | None = None) -> tuple[dict | None, float | None]:
     """Retorna la zona válida dentro de radio más cercana."""
     mejor = None
     mejor_dist = float("inf")
@@ -74,7 +71,7 @@ def zona_mas_cercana(lat: float, lon: float, zonas: List[dict], conductor: Optio
     return mejor, (mejor_dist if mejor else None)
 
 
-def zona_referencia_mas_cercana(lat: float, lon: float, zonas: List[dict]) -> Tuple[Optional[dict], Optional[float]]:
+def zona_referencia_mas_cercana(lat: float, lon: float, zonas: list[dict]) -> tuple[dict | None, float | None]:
     """Zona más cercana sin validar radio para mostrar referencia."""
     candidatos = [z for z in zonas if z.get("lat") is not None and z.get("lon") is not None]
     if not candidatos:
@@ -84,7 +81,7 @@ def zona_referencia_mas_cercana(lat: float, lon: float, zonas: List[dict]) -> Tu
     return mejor, round(dist)
 
 
-def _clasificar_paradas(df_det: pd.DataFrame, zonas: List[dict]) -> pd.DataFrame:
+def _clasificar_paradas(df_det: pd.DataFrame, zonas: list[dict]) -> pd.DataFrame:
     out = df_det.copy()
     out["inicio_dt"] = parse_dates(out["Comienzo"])
     out["hora"] = out["inicio_dt"].dt.hour
@@ -160,8 +157,8 @@ def _clasificar_paradas(df_det: pd.DataFrame, zonas: List[dict]) -> pd.DataFrame
     return out
 
 
-def _cluster_unknown_rows(df_in: pd.DataFrame) -> List[dict]:
-    clusters: List[dict] = []
+def _cluster_unknown_rows(df_in: pd.DataFrame) -> list[dict]:
+    clusters: list[dict] = []
     if df_in.empty:
         return clusters
 
@@ -185,8 +182,8 @@ def _cluster_unknown_rows(df_in: pd.DataFrame) -> List[dict]:
     return clusters
 
 
-def _cluster_rows(df_in: pd.DataFrame, radio_m: float) -> List[dict]:
-    clusters: List[dict] = []
+def _cluster_rows(df_in: pd.DataFrame, radio_m: float) -> list[dict]:
+    clusters: list[dict] = []
     if df_in.empty:
         return clusters
 
@@ -210,7 +207,7 @@ def _cluster_rows(df_in: pd.DataFrame, radio_m: float) -> List[dict]:
     return clusters
 
 
-def _detectar_alertas(df_anomalias: pd.DataFrame) -> List[dict]:
+def _detectar_alertas(df_anomalias: pd.DataFrame) -> list[dict]:
     alerts = []
 
     for _, r in df_anomalias.iterrows():
@@ -301,7 +298,7 @@ def _metricas_conductor(df_cond: pd.DataFrame, placa: str, df_anomalias_cond: pd
     }
 
 
-def _cluster_desconocidos(df_anomalias: pd.DataFrame, conductor: str) -> List[dict]:
+def _cluster_desconocidos(df_anomalias: pd.DataFrame, conductor: str) -> list[dict]:
     data = df_anomalias[(df_anomalias["Conductor"] == conductor) & (df_anomalias["es_anomalia"])].copy()
     if data.empty:
         return []
@@ -346,7 +343,7 @@ def _cluster_desconocidos(df_anomalias: pd.DataFrame, conductor: str) -> List[di
 
 def _heatmap_data(
     df_anomalias: pd.DataFrame,
-) -> Tuple[List[str], List[str], Dict[str, Dict[str, int]], Dict[str, Dict[str, dict]], Dict[str, int], Dict[str, int]]:
+) -> tuple[list[str], list[str], dict[str, dict[str, int]], dict[str, dict[str, dict]], dict[str, int], dict[str, int]]:
     base = df_anomalias[(df_anomalias["es_nocturna"]) | (df_anomalias["fuera_horario"]) | (df_anomalias["larga_horario"])].copy()
     if not base.empty:
         base = base[base["zona_ref_dist_m"].apply(_distancia_m).fillna(float("inf")) > 200].copy()
@@ -425,7 +422,7 @@ def _alert_tipo_corto(alerta: dict) -> str:
     return f"{alerta.get('icono', '⚠️')} Alerta"
 
 
-def _coordenadas_alerta(alerta: dict) -> Tuple[Optional[float], Optional[float]]:
+def _coordenadas_alerta(alerta: dict) -> tuple[float | None, float | None]:
     lat = alerta.get("lat")
     lon = alerta.get("lon")
     if pd.notna(lat) and pd.notna(lon):
@@ -437,9 +434,9 @@ def _coordenadas_alerta(alerta: dict) -> Tuple[Optional[float], Optional[float]]
     return float(lat_p), float(lon_p)
 
 
-def _group_alertas(alertas: List[dict], max_dist_m: float = 50.0) -> List[dict]:
+def _group_alertas(alertas: list[dict], max_dist_m: float = 50.0) -> list[dict]:
     """Agrupa alertas por conductor/placa/tipo cuando estan muy cerca (<50m)."""
-    grupos: List[dict] = []
+    grupos: list[dict] = []
     for alerta in alertas:
         lat, lon = _coordenadas_alerta(alerta)
         if lat is None or lon is None:
@@ -503,7 +500,7 @@ def _group_alertas(alertas: List[dict], max_dist_m: float = 50.0) -> List[dict]:
     return grupos
 
 
-def _distancia_m(dist) -> Optional[float]:
+def _distancia_m(dist) -> float | None:
     if dist is None:
         return None
     if isinstance(dist, (int, float)):
@@ -514,7 +511,7 @@ def _distancia_m(dist) -> Optional[float]:
         return None
 
 
-def _ubicacion_repetida_semanal(det_c: pd.DataFrame) -> List[dict]:
+def _ubicacion_repetida_semanal(det_c: pd.DataFrame) -> list[dict]:
     resumen = []
     if det_c.empty:
         return resumen
@@ -554,7 +551,7 @@ def _ubicacion_repetida_semanal(det_c: pd.DataFrame) -> List[dict]:
     return resumen
 
 
-def _resumen_oficinas(det_c: pd.DataFrame) -> List[dict]:
+def _resumen_oficinas(det_c: pd.DataFrame) -> list[dict]:
     oficinas = det_c[det_c["tipo_zona"] == "oficina"].copy()
     if oficinas.empty:
         return []
@@ -574,7 +571,7 @@ def _resumen_oficinas(det_c: pd.DataFrame) -> List[dict]:
     return rows
 
 
-def _productividad_semaforo(det_c: pd.DataFrame) -> List[dict]:
+def _productividad_semaforo(det_c: pd.DataFrame) -> list[dict]:
     rows = []
     if det_c.empty:
         return rows
@@ -625,10 +622,10 @@ def _productividad_semaforo(det_c: pd.DataFrame) -> List[dict]:
     return rows
 
 
-def _paradas_largas(det_c: pd.DataFrame, umbral_seg: int) -> List[dict]:
+def _paradas_largas(det_c: pd.DataFrame, umbral_seg: int) -> list[dict]:
     if det_c.empty:
         return []
-    
+
     # Filtramos CUALQUIER parada que supere los 30 min (tanto autorizadas como anomalías)
     sub = det_c[det_c["duracion_seg"] >= umbral_seg].copy()
     if sub.empty:
@@ -656,7 +653,7 @@ def _paradas_largas(det_c: pd.DataFrame, umbral_seg: int) -> List[dict]:
     return rows
 
 
-def _coincidencias_ruta(det_c: pd.DataFrame) -> List[dict]:
+def _coincidencias_ruta(det_c: pd.DataFrame) -> list[dict]:
     if det_c.empty:
         return []
 
@@ -664,9 +661,9 @@ def _coincidencias_ruta(det_c: pd.DataFrame) -> List[dict]:
     mov = det_c.copy()
     if "inicio_dt" not in mov.columns:
         mov["inicio_dt"] = parse_dates(mov["Comienzo"])
-    
+
     mov = mov[mov["inicio_dt"].notna()].copy()
-    
+
     # det_c already has lat and lon from transform, but if not:
     if "lat" not in mov.columns or "lon" not in mov.columns:
         lat_lon = mov["Posicion"].apply(parse_coordinates)
@@ -701,7 +698,7 @@ def _coincidencias_ruta(det_c: pd.DataFrame) -> List[dict]:
     return rows
 
 
-def generar_html_anomalias(df: pd.DataFrame, zonas: List[dict], output_path: Path, periodo_label: Optional[str] = None) -> Path:
+def generar_html_anomalias(df: pd.DataFrame, zonas: list[dict], output_path: Path, periodo_label: str | None = None) -> Path:
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -778,10 +775,6 @@ def generar_html_anomalias(df: pd.DataFrame, zonas: List[dict], output_path: Pat
             -int(a.get("duracion_total_seg", a.get("duracion_seg", 0))),
         )
     )
-    total_alertas = len(alertas_grouped)
-    total_crit = sum(1 for a in alertas_grouped if a.get("severidad") == "CRITICA")
-    total_alta = sum(1 for a in alertas_grouped if a.get("severidad") == "ALTA")
-
     rows_alertas = []
     for a in alertas_grouped:
         cls = "row-media"
@@ -809,31 +802,6 @@ def generar_html_anomalias(df: pd.DataFrame, zonas: List[dict], output_path: Pat
             "</tr>"
         )
 
-    alerts_bar_html = (
-        "<div class='alerts-bar'>"
-        "<span class='alerts-bar-label'>Total:</span>"
-        f"<span class='alerts-bar-stat'>{total_alertas} alertas</span>"
-        f"<span class='alerts-bar-stat crit'>{total_crit} críticas</span>"
-        f"<span class='alerts-bar-stat alta'>{total_alta} altas</span>"
-        "</div>"
-    )
-
-    alertas_table = (
-        "<table class='alert-table'>"
-        "<thead><tr><th>Tipo</th><th>Conductor / Placa</th><th>Fecha / Hora</th><th>Duración</th><th>Ubicación</th><th>Dist. zona conocida</th></tr></thead>"
-        f"<tbody>{''.join(rows_alertas) if rows_alertas else '<tr><td colspan=\"6\">Sin alertas de zona desconocida para los criterios definidos.</td></tr>'}</tbody>"
-        "</table>"
-    )
-
-    alertas_html = (
-        alerts_bar_html
-        + "<details open><summary>Ver todas las alertas</summary>"
-        + "<div class='tbl-wrap'>"
-        + alertas_table
-        + "</div>"
-        + "</details>"
-    )
-
     clusters_html = []
     for conductor, clusters in clusters_por_conductor.items():
         if not clusters:
@@ -853,7 +821,7 @@ def generar_html_anomalias(df: pd.DataFrame, zonas: List[dict], output_path: Pat
                     img_html = f"<a href='img/{img_url}.jpeg' target='_blank'><img src='img/{img_url}.jpeg' style='max-height:30px;border-radius:4px;'></a>"
                 else:
                     img_html = f"Sin imagen ({img_url})"
-                
+
             rows.append(
                 "<tr>"
                 f"<td>{c['coord']}</td>"
@@ -875,20 +843,6 @@ def generar_html_anomalias(df: pd.DataFrame, zonas: List[dict], output_path: Pat
             "</div>"
             "</div>"
         )
-
-    # Insights for heatmap
-    dia_max = max(total_dia.items(), key=lambda x: x[1]) if total_dia else ("-", 0)
-    conductor_max = max(total_cond.items(), key=lambda x: x[1]) if total_cond else ("-", 0)
-    crit_por_dia = {}
-    for d in dias:
-        crit_por_dia[d] = sum(1 for c in conductores if int(heat[d][c]) >= 10)
-    dia_crit = max(crit_por_dia.items(), key=lambda x: x[1]) if crit_por_dia else ("-", 0)
-
-    insights_html = (
-        f"<strong>Insights:</strong> {dia_max[0]} con {dia_max[1]} anomalías · "
-        f"{conductor_max[0]} con {conductor_max[1]} anomalías"
-        + (f" · Día con más críticas: {dia_crit[0]} ({dia_crit[1]})" if dia_crit[1] else "")
-    )
 
     heat_rows = []
     for d in dias:
@@ -914,7 +868,6 @@ def generar_html_anomalias(df: pd.DataFrame, zonas: List[dict], output_path: Pat
     total_cols.append(f"<td class='heat-total'>{sum(total_dia.values())}</td>")
     heat_rows.append(f"<tr class='heat-total-row'>{''.join(total_cols)}</tr>")
 
-    total_anomalias = sum(total_dia.values()) if total_dia else 0
     fecha_gen = datetime.now().strftime("%d-%m-%Y %H:%M")
 
     productividad_html = []
@@ -983,11 +936,6 @@ def generar_html_anomalias(df: pd.DataFrame, zonas: List[dict], output_path: Pat
     total_det_por_conductor = {}
     if not det_c.empty:
         total_det_por_conductor = det_c.groupby("Conductor")["duracion_seg"].sum().to_dict()
-
-    crit_conductores = [r["conductor"] for r in resumen_rows if r["riesgo"] == "CRITICO"]
-    normal_conductores = [r["conductor"] for r in resumen_rows if r["riesgo"] == "NORMAL"]
-    crit_conductores_txt = ", ".join(crit_conductores) if crit_conductores else "-"
-    normal_conductores_txt = " · ".join(normal_conductores) if normal_conductores else "-"
 
     nivel_rank = {"ROJO": 0, "AMARILLO": 1, "VERDE": 2}
     semaforo_cards = []
