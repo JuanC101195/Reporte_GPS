@@ -35,3 +35,9 @@ extend-exclude = "(docs|reportes|\\.venv)"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = "-v --tb=short"
+# Ensure tests can import `src.*` without per-file sys.path hacks.
+# Pytest >= 7 honors this and prepends the listed paths to sys.path
+# before any test collection, which keeps CI-on-Linux happy even when
+# tests are collected alphabetically (Linux is strict; Windows masks
+# the issue via CWD-on-sys.path fallbacks).
+pythonpath = ["."]
