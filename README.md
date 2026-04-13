@@ -92,6 +92,25 @@ Si quieres visualizar las fotos capturadas en el reporte, asegúrate de:
 python cli.py anomalias --input "trabajadores.xlsx" --sheet "Hoja2" --photos-file "UBICACION.xlsx"
 ```
 
+### 🗺️ Vista previa automática con Google Maps
+
+Además del flujo manual de fotos, el reporte puede mostrar **miniaturas automáticas** de cada parada (Street View + vista satélite) usando la API de Google Maps Platform. No requiere que agregues fotos manualmente: las URLs se construyen al vuelo a partir de las coordenadas y se embeben como `<img>` en el HTML.
+
+**Configuración:**
+1. Crea una API key en Google Cloud Console con las APIs **Street View Static API** y **Maps Static API** habilitadas.
+2. **Obligatorio:** configura `Quotas` con un tope diario (ej. 300 requests/día) y un `Budget alert` de ~US$1 para blindarte contra cargos.
+3. Exporta la key como variable de entorno:
+   ```powershell
+   # PowerShell (persistente en tu usuario):
+   [System.Environment]::SetEnvironmentVariable("GOOGLE_MAPS_API_KEY", "TU_KEY", "User")
+   ```
+4. Cierra y reabre la terminal para que aplique.
+5. Al correr `cli.py anomalias`, las miniaturas aparecerán automáticamente en la tabla de "Lugares frecuentes desconocidos".
+
+**Degradación grácil:** si la variable no está configurada, el reporte se genera igual pero con un link de texto `"Ver en Maps"` en vez de las miniaturas. No rompe el flujo.
+
+**La key nunca se commitea al repo** — `.env` y variantes están en `.gitignore`.
+
 ## 🧪 Testing y Control de Calidad Lógica
 
 Debido a la precisión requerida para no presentar falsos reclamos a las flotas, el software incluye una suite de pruebas automatizada de validaciones y de coerción de información. Valida: 
