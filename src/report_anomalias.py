@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
-from math import asin, cos, radians, sin, sqrt
 from pathlib import Path
 
 import pandas as pd
 
+from .geo import haversine_metros
 from .transform import parse_coordinates, parse_duracion_segundos
 from .validation import parse_dates
 
@@ -46,13 +46,6 @@ except Exception:
         {"nombre": "Casa Luis Rafael", "tipo": "casa", "conductor": "Luis Rafael", "lat": 10.396344, "lon": -75.474550, "radio_m": RADIO_ZONA_CONOCIDA_M},
         {"nombre": "Casa Hugo", "tipo": "casa", "conductor": "Hugo", "lat": 10.374511, "lon": -75.474478, "radio_m": RADIO_ZONA_CONOCIDA_M},
     ]
-
-
-def haversine_metros(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    r = 6371000
-    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
-    a = sin((lat2 - lat1) / 2) ** 2 + cos(lat1) * cos(lat2) * sin((lon2 - lon1) / 2) ** 2
-    return 2 * r * asin(sqrt(a))
 
 
 def zona_mas_cercana(lat: float, lon: float, zonas: list[dict], conductor: str | None = None) -> tuple[dict | None, float | None]:
