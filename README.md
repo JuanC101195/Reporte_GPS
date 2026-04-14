@@ -1,47 +1,80 @@
 # Reporte de Anomalías GPS - Flota de Vehículos Cartagena
 
-Un robusto sistema de análisis de datos GPS para la flota de vehículos en Cartagena (Colombia). Este proyecto procesa reportes crudos de GPS, extrae métricas operativas y genera reportes HTML profesionales interactivos, enfocados en detectar anomalías operativas, paradas no autorizadas y visualización de rutas recurrentes.
+Sistema de análisis de datos GPS para la flota de vehículos en Cartagena (Colombia). Procesa reportes crudos de GPS, extrae métricas operativas y genera un **dashboard ejecutivo HTML** interactivo enfocado en detectar anomalías operativas, paradas no autorizadas y patrones recurrentes en lugares desconocidos — todo pensado para que el dueño de la flota decida en 10 segundos a quién llamar a la oficina.
 
 > 
 > 👉 **[VER EL ÚLTIMO REPORTE INTERACTIVO EN LÍNEA](https://juanc101195.github.io/Reporte_GPS/)** 👈
 
+![CI](https://github.com/JuanC101195/Reporte_GPS/actions/workflows/ci.yml/badge.svg)
+
 ## 🚀 Características Principales
 
-- **Análisis de Paradas y Zonas Conocidas:** Identificación automática de oficinas y bases (ej: Casa Blanca, Renta Ya) mediante radios de proximidad (200m).
-- **Detección Lógica de Anomalías GPS:** 
-  - Paradas no autorizadas *mayores a 30 minutos* en horario laboral (08:00 - 20:00).
-  - Paradas nocturnas o fuera de la jornada de trabajo.
-  - Identificación de visitas recurrentes a ubicaciones ajenas a las operaciones (≥ 2 visitas semanales).
-- **Coincidencias de Ruta (Encuentros):** Alertas analíticas automáticas cuando dos o más vehículos coinciden en un radio < 150m durante el mismo bloque horario.
-- **Topografía Visual de Reportes:** Generación de un Dashboard HTML general interactivo y de reportes individuales por conductor y placa con mapas en `Folium` incrustados.
-- **Integración y Verificación Fotográfica:** Vinculación geométrica de imágenes a los reportes directamente desde Excel. Permite visualizar la foto real del lugar de la parada en el reporte junto con el mapa. 
+### Dashboard ejecutivo (orientado a decisión)
+- **KPI bar** con los 4 números que importan: alertas críticas, horas en zonas desconocidas, conductores monitoreados, conductores en alerta roja.
+- **Top conductores para revisar** — tarjetas clickeables con los 5 peores ofensores, ordenados por un **score de sospecha** compuesto (horas, paradas anómalas, lugares frecuentes, actividad fuera de horario).
+- **Coloreado por severidad** en todas las tablas (rojo/amarillo/azul según riesgo) — el ojo del supervisor detecta los casos críticos al instante.
+- **Miniaturas de Street View + satélite** generadas automáticamente con Google Maps Platform (ver sección "Vista previa automática" más abajo).
+
+### Motor analítico
+- **Análisis de Zonas Conocidas:** identificación automática de oficinas, bases y casas de conductores mediante `haversine` con radio de 200m (unificado en `src/geo.py`).
+- **Clasificación de paradas:** distingue anomalías genuinas vs. paradas legítimas en zonas conocidas — el reporte filtra automáticamente las legítimas para que sólo veas lo sospechoso.
+- **Detección de lugares frecuentes desconocidos:** clusterización por conductor de puntos visitados ≥ 2 veces, con foto embebida, zona de referencia más cercana y timestamps de primera/última visita.
+- **Recurrencia por parada:** cada parada larga viene con un contador **"# veces"** — cuántas veces el mismo conductor ha estado dentro de 50m de ese punto en TODO el dataset. Patrón = rojo inmediato.
+- **Rango horario explícito:** cada parada muestra `Inicio → Fin` (no sólo la hora de inicio), eliminando la ambigüedad "¿empezó aquí o terminó aquí?".
+- **Coincidencias de ruta:** detección de 2+ vehículos en el mismo radio (150m) durante el mismo bloque horario — útil para encontrar reuniones no autorizadas.
+- **Performance vectorizada:** `add_derived_columns` usa `numpy.haversine_matrix` broadcasted, 1.6× más rápido que el loop original.
 
 ## 📁 Estructura del Proyecto
 
 ```text
-analisis_vehiculos_cartagena/
+Reporte_GPS/
 │
-├── cli.py               # Interfaz de Línea de Comandos (CLI) principal
-├── zonas.json           # Configuración de Zonas Conocidas y sus coordenadas (editable)
-├── requirements.txt     # Dependencias de Python requeridas
-├── .gitignore           # Ignora datos PII, cachés y reportes pesados en Git
-├── README.md            # Documentación del proyecto (este archivo)
+├── cli.py                    # Interfaz CLI principal (argparse)
+├── zonas.json                # Zonas conocidas editables (lat/lon/radio/tipo)
+├── pyproject.toml            # Config de ruff, black y pytest
+├── requirements.txt          # Dependencias runtime
+├── requirements-dev.txt      # Dependencias de desarrollo (pytest, ruff, black)
+├── .gitignore                # Bloquea PII, reportes pesados, .env
+├── .github/workflows/ci.yml  # CI: ruff + pytest en cada push/PR
+├── README.md                 # Este archivo
 │
-├── src/                 # Código fuente principal
-│   ├── pipeline.py      # Orquestador del flujo de lectura, análisis y reporte
-│   ├── io_loader.py     # Carga y parseo confiable de Excel/CSV
-│   ├── transform.py     # Limpieza y normalización de textos, fechas y duraciones
-│   ├── report_anomalias.py # Algoritmos de anomalías, paradas largas y cruces vehiculares
-│   ├── report_html.py   # Motor de inyección de componentes para los Dashboards
-│   └── schema.py        # Validaciones base y utilería nativa
+├── src/
+│   ├── pipeline.py           # Orquestador (load → validate → transform → HTML → PDF)
+│   ├── io_loader.py          # Carga Excel/CSV con doble cabecera + alias normalization
+│   ├── transform.py          # Parsing vectorizado, matching por haversine broadcasted
+│   ├── geo.py                # haversine_metros (escalar) + haversine_matrix (numpy)
+│   ├── maps_preview.py       # Construcción de URLs Street View + Static Map + link Maps
+│   ├── validation.py         # Validación de schema y reportes de calidad CSV
+│   ├── schema.py             # Columnas canónicas, alias, formatos de fecha
+│   ├── report_anomalias.py   # Renderer HTML ejecutivo (KPIs, Top Ofensores, tablas)
+│   ├── report_html.py        # Renderer HTML clásico por conductor (Folium)
+│   ├── report_pdf.py         # Export a PDF via pdfkit (opcional)
+│   │
+│   └── anomalias/            # Lógica analítica pura, desacoplada del renderer
+│       ├── __init__.py       # Exporta la API pública
+│       └── core.py           # Clasificación, clustering, ranking, score de sospecha
 │
-├── tests/               # Pruebas automatizadas (Test-Driven Development)
-│   └── test_report_anomalias.py # Pruebas para las lógicas de anomalía
+├── tests/                    # 67 tests con pytest
+│   ├── test_geo.py           # haversine escalar y matriz broadcasted
+│   ├── test_transform.py     # Parsers, _match_nearest, add_derived_columns
+│   ├── test_io_loader.py     # Carga Excel/CSV con alias
+│   ├── test_validation.py    # parse_dates, validate_schema, quality reports
+│   ├── test_ranking.py       # Score de sospecha + niveles ROJO/AMARILLO/VERDE
+│   ├── test_maps_preview.py  # Builders de URL + fallback sin API key
+│   ├── test_report_anomalias.py  # Clasificación, clusters, coincidencias
+│   ├── bench_transform.py    # Benchmark de performance (no parte del suite)
+│   ├── smoke_maps_preview.py # Smoke test end-to-end con API key real
+│   ├── audit_report.py       # Inspector de estructura del HTML generado
+│   └── inspect_html.py       # Contador de secciones / URLs en el HTML
 │
-└── reportes/            # Directorio de salida (Ignorado en `.gitignore`)
-    ├── img/             # Carpeta requerida para las fotos de la integración visual
-    ├── reporte_anomalias.html # Dashboard Ejecutivo General (HTML)
-    └── individuales/    # Dashboards desglosados
+├── docs/                     # Dashboard público servido por GitHub Pages
+│   ├── index.html            # Reporte publicado (regenerado sin API key embebida)
+│   └── img/                  # Imágenes legacy del flujo manual de fotos
+│
+└── reportes/                 # Salida local del CLI (ignorado por git)
+    ├── reporte_anomalias.html # Dashboard generado localmente (con miniaturas)
+    ├── img/                  # Fotos opcionales del flujo manual UBICACION.xlsx
+    └── logs/                 # Logs del pipeline
 ```
 
 ## 🛠 Instalación y Configuración
@@ -66,7 +99,11 @@ analisis_vehiculos_cartagena/
 
 3. **Instalación de Dependencias:**
    ```bash
+   # Runtime (para correr el CLI en producción)
    pip install -r requirements.txt
+
+   # Dev (además incluye pytest, ruff, black, pre-commit)
+   pip install -r requirements-dev.txt
    ```
 
 ## 💻 Uso y Comandos CLI
@@ -92,45 +129,141 @@ Si quieres visualizar las fotos capturadas en el reporte, asegúrate de:
 python cli.py anomalias --input "trabajadores.xlsx" --sheet "Hoja2" --photos-file "UBICACION.xlsx"
 ```
 
+### 📊 Cómo leer el dashboard ejecutivo
+
+El HTML generado está pensado para **decidir en 10 segundos**. Lee el reporte en este orden:
+
+1. **KPI bar (arriba del todo).** Cuatro números te dan la foto general de la semana:
+   - *Alertas críticas* — total de paradas largas (>30 min) en zonas desconocidas.
+   - *Horas en zonas desconocidas* — cuánto tiempo total gastó la flota fuera de bases.
+   - *Conductores monitoreados* — cuántos vehículos están activos.
+   - *En alerta (rojo)* — cuántos conductores superaron el umbral de sospecha.
+
+2. **Panel "🔥 Top conductores para revisar".** Las 5 tarjetas te dicen **a quién llamar primero**. Cada una muestra el nombre, la placa, un Street View del peor punto que visitó y un breakdown del score (horas desconocidas · paradas >30min · lugares frecuentes · horas fuera horario). Hacé clic en una tarjeta y te lleva directo al bloque de clusters de ese conductor más abajo.
+
+3. **Panel "📋 Tablas solicitadas".** Cinco secciones colapsables con la evidencia:
+   - *Ubicación repetida semanal por trabajador* — puntos visitados ≥ 2 veces.
+   - *Tiempo y visitas en oficina* — control de productividad en bases conocidas.
+   - *Coincidencias de ruta* — 2+ vehículos en el mismo radio al mismo tiempo.
+   - *Lugares frecuentes desconocidos por conductor* — tabla con miniaturas Street View.
+   - *Paradas mayores a 30 minutos en zonas desconocidas* — filtrada automáticamente para ocultar paradas legítimas en bases.
+
+**Lectura del coloreado:**
+| Color de fila | Significado |
+|---|---|
+| 🔴 Rojo (`row-crit`) | Nocturna, duración > 4h, o ≥ 5 visitas al mismo punto |
+| 🟡 Amarillo (`row-alta`) | Fuera de horario, > 2h, o 3-4 visitas |
+| 🔵 Azul (`row-media`) | Parada rara aislada, baja prioridad |
+
+**Lectura del score de sospecha** (configurable en `src/anomalias/core.py`):
+
+```
+score = horas_desconocidas   × 0.5   (señal débil — es su trabajo)
+      + paradas_anomalas     × 3     (moderada)
+      + lugares_frecuentes   × 15    (señal principal)
+      + horas_fuera_horario  × 4     (moderada)
+```
+
+Umbrales: **ROJO ≥ 30**, **AMARILLO ≥ 12**, **VERDE** el resto. La calibración está pensada para flotas de delivery con clientes recurrentes donde "horas en zonas desconocidas" no es suspicioso por sí solo — lo que importa es **visitar el mismo punto desconocido 3+ veces**.
+
+---
+
 ### 🗺️ Vista previa automática con Google Maps
 
 Además del flujo manual de fotos, el reporte puede mostrar **miniaturas automáticas** de cada parada (Street View + vista satélite) usando la API de Google Maps Platform. No requiere que agregues fotos manualmente: las URLs se construyen al vuelo a partir de las coordenadas y se embeben como `<img>` en el HTML.
 
 **Configuración:**
 1. Crea una API key en Google Cloud Console con las APIs **Street View Static API** y **Maps Static API** habilitadas.
-2. **Obligatorio:** configura `Quotas` con un tope diario (ej. 300 requests/día) y un `Budget alert` de ~US$1 para blindarte contra cargos.
-3. Exporta la key como variable de entorno:
+2. **Obligatorio — 3 capas de blindaje:**
+   - **HTTP Referrer Restriction** (obligatorio si vas a publicar en GitHub Pages): seleccioná "Sitios web" y agregá `https://TU_USUARIO.github.io/*` y `https://TU_USUARIO.github.io/Reporte_GPS/*`.
+   - **Quota cap**: bajá `Unsigned requests per day` a ~3.000 en ambas APIs.
+   - **Budget alert** de US$1 con avisos al 50/90/100%.
+3. Exporta la key como variable de entorno (persistente en User scope):
    ```powershell
-   # PowerShell (persistente en tu usuario):
    [System.Environment]::SetEnvironmentVariable("GOOGLE_MAPS_API_KEY", "TU_KEY", "User")
    ```
 4. Cierra y reabre la terminal para que aplique.
-5. Al correr `cli.py anomalias`, las miniaturas aparecerán automáticamente en la tabla de "Lugares frecuentes desconocidos".
+5. Al correr `cli.py anomalias`, las miniaturas aparecerán automáticamente en las tablas de **Top Ofensores**, **Lugares frecuentes desconocidos** y **Paradas mayores a 30 minutos**.
 
 **Degradación grácil:** si la variable no está configurada, el reporte se genera igual pero con un link de texto `"Ver en Maps"` en vez de las miniaturas. No rompe el flujo.
 
-**La key nunca se commitea al repo** — `.env` y variantes están en `.gitignore`.
+**Versión local vs versión publicada en GitHub Pages:**
 
-## 🧪 Testing y Control de Calidad Lógica
+Con la HTTP Referrer Restriction activa, las miniaturas **funcionan desde GitHub Pages** (el navegador envía el header `Referer` correcto) pero **dejan de funcionar cuando abrís el HTML local** directamente en el navegador (`file:///...`), porque ese protocolo no envía un Referer válido.
 
-Debido a la precisión requerida para no presentar falsos reclamos a las flotas, el software incluye una suite de pruebas automatizada de validaciones y de coerción de información. Valida: 
-- Que las detenciones fortuitas de menos de 30 minutos no se etiqueten caprichosamente como Anomalía.
-- Detecciones limpias de placas superpuestas en el mismo bloque horario y lugar.
-- Correcta agrupación de direcciones repetitivas en la semana con formato correcto.
+Opciones si querés las miniaturas también en el reporte local:
 
-Para validar el ecosistema:
+- **(a)** Abrí el HTML local vía un servidor HTTP simple: `python -m http.server 8000 --directory reportes` y navegá a `http://localhost:8000/reporte_anomalias.html`. El navegador entonces envía un Referer de `localhost` que tendrás que agregar a la lista de referrers permitidos.
+- **(b)** Crear una **segunda API key** sin HTTP Referrer Restriction (sólo con API restrictions) para uso exclusivamente local, y usar la primera sólo para el sitio publicado.
+
+**La key nunca se commitea al repo** — `.env` y variantes están en `.gitignore`. Para publicar el HTML en GitHub Pages se recomienda regenerarlo **sin** la env var de modo que caiga al fallback "Ver en Maps" (no expone la key), o con la key habilitada si ya tenés la referrer restriction activa.
+
+## 🧪 Testing y Control de Calidad
+
+La suite tiene **67 tests** organizados en 7 archivos, cubriendo desde los helpers geográficos de bajo nivel hasta el renderer ejecutivo. Cada push y cada PR contra `main` dispara un workflow en GitHub Actions que corre **ruff** (lint) y **pytest** (con coverage).
+
+**Correr todo local:**
+
 ```bash
-python -m unittest tests/test_report_anomalias.py -v
+# Lint
+ruff check .
+
+# Tests con coverage
+pytest --cov=src --cov-report=term-missing
 ```
+
+**Cobertura por módulo (baseline actual):**
+
+| Módulo | Coverage |
+|---|---|
+| `src/geo.py` | 100% |
+| `src/maps_preview.py` | 100% |
+| `src/schema.py` | 100% |
+| `src/validation.py` | 91% |
+| `src/anomalias/core.py` | 83% |
+| `src/io_loader.py` | 77% |
+| `src/transform.py` | 48% |
+
+**Qué valida la suite:**
+
+- Paradas cortas (< 30 min) nunca se clasifican como anomalía.
+- Cálculo correcto de `haversine_metros` y `haversine_matrix` contra valores conocidos.
+- `_paradas_largas` filtra correctamente zonas conocidas (por defecto `only_anomalas=True`).
+- `ranking_conductores` ordena correctamente por score y asigna niveles ROJO/AMARILLO/VERDE.
+- Score sigue la fórmula documentada (validado contra pesos `WEIGHT_*`).
+- Carga de Excel con doble cabecera + normalización de aliases de columnas.
+- `parse_coordinates_series` vectorizado con `str.extract`.
+- `preview_cell_html` degrada grácilmente cuando no hay `GOOGLE_MAPS_API_KEY`.
+- La API key nunca se filtra fuera de los `src` de las miniaturas en el HTML generado.
+
+**Utilidades en `tests/` (no parte del suite de pytest):**
+
+- `tests/bench_transform.py` — benchmark sintético de `add_derived_columns` para medir performance.
+- `tests/smoke_maps_preview.py` — smoke test end-to-end que valida el flujo completo con una API key real.
+- `tests/audit_report.py` e `tests/inspect_html.py` — inspectores del HTML generado para verificar estructura y conteos.
 
 ## ⚠️ Zonas Base Configurables
 
 A diferencia de parámetros fijados duramente al código interno, si en el futuro se fundan nuevas bases vehiculares (O nuevas oficinas de Renta Ya / Casa Blanca), no necesitas conocimientos de programación. 
 La adaptación resulta inmediata con solamente editar el diccionario de `zonas.json` adjuntando Latitud, Longitud y Nombre del sector.
 
-## 🔮 Roadmap y Siguientes Pasos (Arquitectura Empresarial)
+## 🔮 Roadmap y Siguientes Pasos
 
-Este proyecto funciona como un motor analítico avanzado mediante línea de comandos (CLI). Sin embargo, la **siguiente fase evolutiva** natural de este ecosistema contempla transformar esta herramienta en una **arquataforma web empresarial**, orquestando nuestro potente código analítico actual bajo la robustez de **Java / Spring Boot**.
+### ✅ Hecho
+
+- **Fase 1 — Higiene y bugs críticos:** eliminación de paths hardcodeados, arreglo del CLI `_anomalias` duplicado, `requirements.txt` recortado, `pyproject.toml` con config de `ruff`/`black`/`pytest`.
+- **Fase ruff — Baseline de lint:** 100 errores → 0. Eliminación de código muerto (~40 líneas de variables construidas y nunca leídas).
+- **Fase performance — Vectorización:** `add_derived_columns` pasó de iterar fila-a-fila con `.at[]` a usar `haversine_matrix` broadcasted. **1.6× más rápido** a 10k filas. Creación de `src/geo.py` compartido.
+- **Fase 2 — Refactor arquitectónico:** `report_anomalias.py` pasó de **1343 → 509 LOC** (-62%). La lógica analítica pura se extrajo a `src/anomalias/core.py` (paquete independiente, testeable, sin dependencias de HTML/Folium). Habilita el plan de microservicio FastAPI descripto abajo.
+- **Fase 2c — Demolición de código muerto:** eliminación de ~460 LOC de código muerto en el renderer (resumen ejecutivo roto, heatmap sin render, semáforo sin render, alertas críticas sin insertar). El HTML actual renderiza sólo lo que calcula.
+- **Fase tests — Red de seguridad:** 4 tests → **67 tests**. Cobertura de `geo`, `transform`, `io_loader`, `validation`, `anomalias.core`, `maps_preview`. **GitHub Actions CI** con ruff + pytest en cada push.
+- **Fase dashboard — Experiencia ejecutiva:** KPI bar, Top Ofensores con ranking por score de sospecha, coloreado de filas por severidad, filtrado automático de "Paradas > 30 min" a sólo zonas desconocidas.
+- **Fase maps preview — Miniaturas automáticas:** integración con Google Maps Platform (Street View + Static Maps) con degradación grácil cuando no hay API key y configuración de HTTP Referrer Restriction para el sitio publicado.
+- **Fase paradas enriquecidas — UX de director:** cada parada larga muestra `Inicio → Fin` explícito, contador de recurrencia `# veces` y miniaturas clickeables. Decisión en 5 segundos por fila.
+
+### 🔭 Siguientes pasos (arquitectura empresarial)
+
+Este proyecto funciona como un motor analítico avanzado mediante línea de comandos (CLI). Sin embargo, la **siguiente fase evolutiva** natural de este ecosistema contempla transformar esta herramienta en una **plataforma web empresarial**, orquestando nuestro potente código analítico actual bajo la robustez de **Java / Spring Boot**.
 
 Los pasos a futuro diseñados para el escalamiento son:
 
