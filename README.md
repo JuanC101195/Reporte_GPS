@@ -68,12 +68,10 @@ Reporte_GPS/
 │   └── inspect_html.py       # Contador de secciones / URLs en el HTML
 │
 ├── docs/                     # Dashboard público servido por GitHub Pages
-│   ├── index.html            # Reporte publicado (regenerado sin API key embebida)
-│   └── img/                  # Imágenes legacy del flujo manual de fotos
+│   └── index.html            # Reporte publicado (regenerable con o sin API key)
 │
 └── reportes/                 # Salida local del CLI (ignorado por git)
     ├── reporte_anomalias.html # Dashboard generado localmente (con miniaturas)
-    ├── img/                  # Fotos opcionales del flujo manual UBICACION.xlsx
     └── logs/                 # Logs del pipeline
 ```
 
@@ -119,14 +117,6 @@ El proyecto está diseñado pensando en invocaciones modulares vía línea de co
 Extrae registros de Excel, localiza anomalías, depura duplicados estáticos y compila HTMLs.
 ```bash
 python cli.py anomalias --input "trabajadores.xlsx" --sheet "Hoja2" --out-dir reportes --periodo "Semana Actual"
-```
-
-**Generación de Reporte Mapeado Fotográficamente:**
-Si quieres visualizar las fotos capturadas en el reporte, asegúrate de:
-1. Depositar los archivos `.jpeg`/`.png` físicamente en `reportes/img/`.
-2. Incluir una tabla de Mapeo de fotos (`--photos-file`) que asocie Foto -> Coordenada.
-```bash
-python cli.py anomalias --input "trabajadores.xlsx" --sheet "Hoja2" --photos-file "UBICACION.xlsx"
 ```
 
 ### 📊 Cómo leer el dashboard ejecutivo

@@ -217,13 +217,6 @@ def _cluster_desconocidos(df_anomalias: pd.DataFrame, conductor: str) -> list[di
         coord = f"{c['centroid_lat']:.6f}, {c['centroid_lon']:.6f}"
         zona, dist = zona_referencia_mas_cercana(c["centroid_lat"], c["centroid_lon"], ZONAS_CONOCIDAS)
 
-        imagen_url = "-"
-        if "imagen_url" in sub.columns:
-            imagenes = sub["imagen_url"].dropna()
-            imagenes = imagenes[imagenes != ""]
-            if not imagenes.empty:
-                imagen_url = str(imagenes.iloc[0])
-
         result.append(
             {
                 "conductor": conductor,
@@ -238,7 +231,6 @@ def _cluster_desconocidos(df_anomalias: pd.DataFrame, conductor: str) -> list[di
                 "ultima_visita": sub["inicio_dt"].max().strftime("%d-%m-%Y %H:%M") if sub["inicio_dt"].notna().any() else "-",
                 "zona_ref_nombre": zona["nombre"] if zona else "-",
                 "zona_ref_dist_m": dist if dist is not None else "-",
-                "imagen_url": imagen_url,
             }
         )
 
