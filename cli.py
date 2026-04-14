@@ -19,7 +19,6 @@ def _run(args):
         validate_only=args.validate_only,
         skip_pdf=args.skip_pdf,
         homes_file=getattr(args, "homes_file", None),
-        photos_file=getattr(args, "photos_file", None),
     )
 
 
@@ -31,7 +30,6 @@ def _validate(args):
         validate_only=True,
         skip_pdf=True,
         homes_file=getattr(args, "homes_file", None),
-        photos_file=getattr(args, "photos_file", None),
     )
 
 
@@ -59,7 +57,7 @@ def _anomalias(args):
         df = io_loader.load_excel(p, sheet_name=args.sheet)
     else:
         df = io_loader.load_csv(p)
-    df = transform.add_derived_columns(df, photos_file=getattr(args, "photos_file", None))
+    df = transform.add_derived_columns(df)
 
     output_dir = Path(args.out_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -80,7 +78,6 @@ def main():
     p_run.add_argument("--validate-only", action="store_true", help="Only validate data")
     p_run.add_argument("--skip-pdf", action="store_true", help="Skip PDF generation")
     p_run.add_argument("--homes-file", default=None, help="Excel with worker home coordinates")
-    p_run.add_argument("--photos-file", default=None, help="Excel with photo GPS mappings (e.g. UBICACION.xlsx)")
     p_run.set_defaults(func=_run)
 
     p_val = sub.add_parser("validate", help="Validation-only mode")
@@ -88,7 +85,6 @@ def main():
     p_val.add_argument("--sheet", default=None)
     p_val.add_argument("--out-dir", default="reportes")
     p_val.add_argument("--homes-file", default=None, help="Excel with worker home coordinates")
-    p_val.add_argument("--photos-file", default=None, help="Excel with photo GPS mappings")
     p_val.set_defaults(func=_validate)
 
     p_pdf = sub.add_parser("pdf", help="Convert existing HTML files to PDF")
@@ -101,7 +97,6 @@ def main():
     p_anom.add_argument("--sheet", default=None)
     p_anom.add_argument("--out-dir", default="reportes")
     p_anom.add_argument("--periodo", default=None, help="Ej: Semana 9-16 Marzo 2026")
-    p_anom.add_argument("--photos-file", default=None, help="Excel with photo GPS mappings")
     p_anom.set_defaults(func=_anomalias)
 
     args = parser.parse_args()

@@ -31,7 +31,6 @@ def run_pipeline(
     skip_pdf=False,
     log_dir="logs",
     homes_file=None,
-    photos_file=None,
 ):
     log = _setup_logging(log_dir)
     input_file = Path(input_file)
@@ -44,8 +43,6 @@ def run_pipeline(
     log.info("Output: %s", output_dir)
     if homes_file:
         log.info("Homes : %s", homes_file)
-    if photos_file:
-        log.info("Photos: %s", photos_file)
     log.info("=" * 60)
 
     try:
@@ -78,7 +75,7 @@ def run_pipeline(
         return True
 
     try:
-        df = transform.add_derived_columns(df, homes_file=homes_file, photos_file=photos_file)
+        df = transform.add_derived_columns(df, homes_file=homes_file)
         log.info("Transform complete (durations, week, speed, distance).")
     except Exception as exc:
         log.error("Transform error: %s", exc)

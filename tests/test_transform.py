@@ -184,7 +184,6 @@ class TestAddDerivedColumns:
             "latitud",
             "longitud",
             "ubicacion_conocida",
-            "imagen_url",
         }
         assert expected.issubset(set(df.columns))
 

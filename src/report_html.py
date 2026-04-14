@@ -59,7 +59,7 @@ _TMPL = """<!DOCTYPE html>
     <table>
       <thead>
         <tr>
-          <th>#</th><th>Estado</th><th>Inicio</th><th>Fin</th><th>Duracion</th><th>Posicion / Distancia</th><th>Ubicacion conocida</th><th>Imagen</th><th>Vel Max</th><th>Vel Media</th>
+          <th>#</th><th>Estado</th><th>Inicio</th><th>Fin</th><th>Duracion</th><th>Posicion / Distancia</th><th>Ubicacion conocida</th><th>Vel Max</th><th>Vel Media</th>
         </tr>
       </thead>
       <tbody>
@@ -82,7 +82,6 @@ _ROW_TMPL = (
     "<td>{duracion}</td>"
     "<td>{posicion}</td>"
     "<td>{ubicacion}</td>"
-    "<td>{imagen}</td>"
     "<td>{vel_max}</td>"
     "<td>{vel_media}</td>"
     "</tr>"
@@ -125,20 +124,6 @@ def generate_single_html(df_placa, placa, output_dir):
         estado = str(row.get("Estado", ""))
         badge = "badge-det" if estado == "Detenido" else "badge-mov"
 
-        img_name = row.get("imagen_url", "")
-        if pd.isna(img_name) or not img_name:
-            img_html = "-"
-        else:
-            # Asumimos que los archivos en disco son .jpeg
-            # y apuntamos a ../img/ ya que los html están en reportes/html/
-            # Chequeamos si existe físicamente primero
-            from pathlib import Path
-            img_path = Path("reportes/img") / f"{img_name}.jpeg"
-            if img_path.exists():
-                img_html = f"<a href='../img/{img_name}.jpeg' target='_blank'><img src='../img/{img_name}.jpeg' style='max-height: 40px; border-radius: 4px;' alt='{img_name}'/></a>"
-            else:
-                img_html = f"Sin imagen ({img_name})"
-
         filas_html.append(
             _ROW_TMPL.format(
                 n=i,
@@ -149,7 +134,6 @@ def generate_single_html(df_placa, placa, output_dir):
                 duracion=str(row.get("Duracion", "")),
                 posicion=str(row.get("Posicion", "")),
                 ubicacion=(str(row.get("ubicacion_conocida", "")) or "-"),
-                imagen=img_html,
                 vel_max=(str(row.get("Vel_Max", "")) or "-"),
                 vel_media=(str(row.get("Vel_Media", "")) or "-"),
             )

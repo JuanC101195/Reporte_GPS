@@ -135,42 +135,6 @@ def load_worker_homes(homes_file=None):
     return homes_by_placa
 
 
-def load_photos_db(photos_file=None):
-    if not photos_file:
-        return []
-    path = Path(photos_file)
-    if not path.exists():
-        return []
-
-    try:
-        df = pd.read_excel(path)
-    except Exception:
-        return []
-
-    photos = []
-    # Asegurar que las columnas coinciden aunque tengan espacios
-    col_img = next((c for c in df.columns if "IMAGEN" in c.upper()), None)
-    col_coord = next((c for c in df.columns if "CORDENADA" in c.upper() or "COORDENADA" in c.upper()), None)
-
-    if not col_img or not col_coord:
-        return []
-
-    for _, row in df.iterrows():
-        img_name = str(row[col_img]).strip()
-        coords_str = str(row[col_coord]).strip()
-        if not img_name or not coords_str or img_name.lower() == "nan":
-            continue
-
-        parts = re.findall(r"-?\d+\.?\d*", coords_str)
-        if len(parts) >= 2:
-            photos.append({
-                "name": img_name,
-                "lat": float(parts[0]),
-                "lon": float(parts[1])
-            })
-
-    return photos
-
 def _match_nearest(
     lat_series: pd.Series,
     lon_series: pd.Series,
@@ -258,7 +222,7 @@ def parse_distancia_km(series):
     )
 
 
-def add_derived_columns(df, homes_file=None, photos_file=None):
+def add_derived_columns(df, homes_file=None):
     from .validation import parse_dates
 
     df = df.copy()
@@ -283,7 +247,6 @@ def add_derived_columns(df, homes_file=None, photos_file=None):
     df["latitud"] = None
     df["longitud"] = None
     df["ubicacion_conocida"] = None
-    df["imagen_url"] = None
 
     stop_mask = df["Estado"] == "Detenido"
     if stop_mask.any():
@@ -291,20 +254,7 @@ def add_derived_columns(df, homes_file=None, photos_file=None):
         df.loc[stop_mask, "latitud"] = lat_s
         df.loc[stop_mask, "longitud"] = lon_s
 
-        # 1. Photos: single shared lookup, matched in one broadcasted pass.
-        photos_db = load_photos_db(photos_file)
-        if photos_db:
-            photo_result = _match_nearest(
-                lat_s,
-                lon_s,
-                [p["lat"] for p in photos_db],
-                [p["lon"] for p in photos_db],
-                [p["name"] for p in photos_db],
-                RADIO_MATCH_METROS,
-            )
-            df.loc[stop_mask, "imagen_url"] = photo_result
-
-        # 2. Offices: same broadcasting idea.
+        # 1. Offices: broadcasted match against known bases.
         office_result = _match_nearest(
             lat_s,
             lon_s,
@@ -315,7 +265,7 @@ def add_derived_columns(df, homes_file=None, photos_file=None):
         )
         df.loc[stop_mask, "ubicacion_conocida"] = office_result
 
-        # 3. Worker homes: per-placa fallback (offices take precedence).
+        # 2. Worker homes: per-placa fallback (offices take precedence).
         homes_by_placa = load_worker_homes(homes_file)
         if homes_by_placa:
             stop_placas = df.loc[stop_mask, "Placa"]
