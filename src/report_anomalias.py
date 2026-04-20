@@ -203,6 +203,7 @@ def generar_html_anomalias(df: pd.DataFrame, zonas: list[dict], output_path: Pat
             f"<td>{r['conductor']}</td>"
             f"<td>{r['placa']}</td>"
             f"<td>{r['fecha']}</td>"
+            f"<td>{r.get('dia_semana', '-')}</td>"
             f"<td>{rango_horario}</td>"
             f"<td>{_fmt_horas(duracion_seg)}</td>"
             f"<td>{veces_html}</td>"
@@ -623,11 +624,12 @@ details summary::-webkit-details-marker {{ display: none; }}
             <table>
                 <thead><tr>
                     <th>Conductor</th><th>Placa</th>
-                    <th>Fecha</th><th>Inicio → Fin</th>
+                    <th>Fecha</th><th>Dia</th>
+                    <th>Inicio → Fin</th>
                     <th>Duracion</th><th>Veces</th>
                     <th>Vista previa</th><th>Zona</th>
                 </tr></thead>
-                <tbody>{''.join(paradas_largas_html) if paradas_largas_html else '<tr><td colspan="8">Sin paradas mayores a 30 minutos en zona desconocida.</td></tr>'}</tbody>
+                <tbody>{''.join(paradas_largas_html) if paradas_largas_html else '<tr><td colspan="9">Sin paradas mayores a 30 minutos en zona desconocida.</td></tr>'}</tbody>
             </table>
         </div>
     </details>
