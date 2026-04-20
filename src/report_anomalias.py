@@ -38,7 +38,7 @@ from .anomalias.core import (
     zona_referencia_mas_cercana,
 )
 from .geo import haversine_metros
-from .maps_preview import preview_cell_html
+from .maps_preview import preview_cell_html, preview_thumb_html
 from .transform import parse_coordinates, parse_duracion_segundos
 from .validation import parse_dates
 
@@ -267,7 +267,10 @@ def generar_html_anomalias(df: pd.DataFrame, zonas: list[dict], output_path: Pat
             nivel = r["nivel"]
             cls = "ofensor-rojo" if nivel == "ROJO" else "ofensor-amarillo"
             peor = r.get("peor_cluster") or {}
-            thumb = preview_cell_html(peor.get("lat"), peor.get("lon")) if peor else "-"
+            # Use the link-less variant: the whole card is already an <a>
+            # and nesting <a> tags yields invalid HTML that browsers render
+            # as stray red pills/bars.
+            thumb = preview_thumb_html(peor.get("lat"), peor.get("lon")) if peor else "-"
             anchor = r["conductor"].replace(" ", "_")
             detalle = (
                 f"{r['horas_desconocidas']:.1f}h desconocidas · "
