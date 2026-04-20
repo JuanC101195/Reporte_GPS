@@ -319,6 +319,19 @@ def _resumen_oficinas(det_c: pd.DataFrame) -> list[dict]:
 
 RECURRENCE_RADIO_M = 50.0
 
+# Mapeo de los dias que devuelve pandas (ingles, default) al nombre
+# en espanol con tilde. Evita depender de locale del sistema (que en
+# Windows y Linux se configura distinto y rompe en CI).
+_DIAS_ES = {
+    "Monday": "Lunes",
+    "Tuesday": "Martes",
+    "Wednesday": "Miércoles",
+    "Thursday": "Jueves",
+    "Friday": "Viernes",
+    "Saturday": "Sábado",
+    "Sunday": "Domingo",
+}
+
 
 def _paradas_largas(
     det_c: pd.DataFrame,
@@ -391,6 +404,7 @@ def _paradas_largas(
                 "conductor": r.get("Conductor", "-"),
                 "placa": r.get("Placa", "-"),
                 "fecha": inicio_dt.strftime("%d-%m-%Y"),
+                "dia_semana": _DIAS_ES.get(inicio_dt.day_name(), inicio_dt.day_name()),
                 "hora": inicio_dt.strftime("%H:%M"),
                 "hora_fin": fin_dt.strftime("%H:%M"),
                 "hora_int": hora_int,

@@ -90,19 +90,23 @@ class TestReportAnomalias(unittest.TestCase):
         self.assertEqual(len(largas_cond_d), 0)
 
     def test_02b_paradas_largas_campos_enriquecidos(self):
-        """Verifica que _paradas_largas devuelve lat/lon/hora_fin/n_veces."""
+        """Verifica que _paradas_largas devuelve lat/lon/hora_fin/n_veces/dia_semana."""
         det = self.df[self.df["Estado"] == "Detenido"].copy()
         res = _clasificar_paradas(det, self.zonas)
         largas = _paradas_largas(res, UMBRAL_PARADA_LARGA_SEG)
         self.assertTrue(len(largas) > 0)
+        dias_validos = {"Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"}
         for r in largas:
             self.assertIn("lat", r)
             self.assertIn("lon", r)
             self.assertIn("hora_fin", r)
             self.assertIn("n_veces", r)
+            self.assertIn("dia_semana", r)
             self.assertGreaterEqual(r["n_veces"], 1)
             # hora_fin debe ser posterior a hora (mismo dia en los datos de prueba)
             self.assertEqual(len(r["hora_fin"]), 5)  # HH:MM
+            # dia_semana debe estar en espanol
+            self.assertIn(r["dia_semana"], dias_validos)
 
     def test_03_coincidencias_ruta(self):
         """Verifica que al cruzarse 2 autos en el mismo radio a la misma hora, genere la advertencia"""
