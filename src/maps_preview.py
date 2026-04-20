@@ -107,3 +107,39 @@ def preview_cell_html(lat: float, lon: float) -> str:
         )
     parts.append("</div>")
     return "".join(parts)
+
+
+def preview_thumb_html(lat: float, lon: float) -> str:
+    """Render preview thumbnails WITHOUT wrapping links.
+
+    Same Street View + satellite layout as ``preview_cell_html`` but
+    each ``<img>`` stands alone, without the enclosing ``<a>`` tags.
+    Use this inside elements that are already clickable (e.g. a whole
+    card that is itself an ``<a>``) — nesting anchors produces invalid
+    HTML that browsers render inconsistently (stray red pills, empty
+    bars, etc.).
+
+    Falls back to a blank ``-`` when no API key or no coordinates.
+    """
+    if lat is None or lon is None:
+        return "-"
+
+    sv = streetview_url(lat, lon)
+    sat = staticmap_url(lat, lon)
+
+    if not sv and not sat:
+        return "-"
+
+    parts = ["<div style='display:flex;gap:4px;align-items:center;'>"]
+    if sv:
+        parts.append(
+            f"<img src='{sv}' alt='Street View' title='Street View' "
+            "style='width:80px;height:50px;object-fit:cover;border-radius:4px;border:1px solid #e2e8f0;'>"
+        )
+    if sat:
+        parts.append(
+            f"<img src='{sat}' alt='Satelite' title='Satelite' "
+            "style='width:80px;height:50px;object-fit:cover;border-radius:4px;border:1px solid #e2e8f0;'>"
+        )
+    parts.append("</div>")
+    return "".join(parts)

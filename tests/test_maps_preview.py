@@ -10,6 +10,7 @@ from src.maps_preview import (
     get_api_key,
     gmaps_link,
     preview_cell_html,
+    preview_thumb_html,
     staticmap_url,
     streetview_url,
 )
@@ -102,6 +103,29 @@ class TestPreviewCellHtml:
         # but we want to ensure it's only inside src="..." and not anywhere else.
         # Count occurrences: should equal number of authenticated URLs (2).
         assert html.count(fake_key) == 2
+
+
+class TestPreviewThumbHtml:
+    def test_none_coords_returns_dash(self, fake_key):
+        assert preview_thumb_html(None, None) == "-"
+        assert preview_thumb_html(10.0, None) == "-"
+
+    def test_without_key_returns_dash(self, no_key):
+        # No API key means no useful preview at all; thumb is decorative
+        # only and there is no fallback text link (the parent card is
+        # already clickable, no extra link needed here).
+        assert preview_thumb_html(10.38, -75.47) == "-"
+
+    def test_with_key_has_no_nested_anchors(self, fake_key):
+        html = preview_thumb_html(10.38, -75.47)
+        # 2 <img> tags, one per API
+        assert html.count("<img") == 2
+        assert "streetview" in html
+        assert "staticmap" in html
+        # CRITICAL: no <a> tags at all (this is the whole point —
+        # these thumbs are rendered inside a parent <a>).
+        assert "<a " not in html
+        assert "</a>" not in html
 
 
 class TestRendererIntegration:
