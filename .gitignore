@@ -37,3 +37,8 @@ reportes/
 
 # Logs
 *.log
+
+# Temporales del script actualizar.ps1
+.commit_msg
+.commit_msg.tmp
+docs_tmp/
